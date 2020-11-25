@@ -9,7 +9,6 @@ use std::time::Instant;
 
 type Matrix = Vec<Vec<f64>>;
 
-
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 struct CorResult {
     r: f64,
@@ -115,12 +114,13 @@ fn get_df(path: &str) -> Matrix {
 }
 
 fn main() {
-    let m1 = get_df("/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv");
+    let m1 = get_df("/home/genaro/Descargas/ParaRust/mrna_rust.csv");
     println!("Dimensiones -> {} x {}", m1.len(), m1[0].len());
-    let m3 = get_df("/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv");
+    let m3 = get_df("/home/genaro/Descargas/ParaRust/mirna_rust.csv");
     println!("Dimensiones -> {} x {}", m3.len(), m3[0].len());
     
     let now = Instant::now();
     all_vs_all(m1, m3);
+    // all_vs_all_with_iterators(m1, m3);
     println!("Tiempo del experimento -> {} segundos", now.elapsed().as_secs());
 }
