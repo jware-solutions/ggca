@@ -36,7 +36,7 @@ impl ExternallySortable for CorResult {
     fn get_size(&self) -> u64 { 1 }
 }
 
-fn all_vs_all(m1: Matrix, len_m1: u64, m3: Matrix, len_m3: u64, number_of_columns: usize) {
+fn all_vs_all(m1: Matrix, len_m1: u64, m3: Matrix, len_m3: u64, number_of_columns: usize, correlation_threhold: f64, sort_chunk_size: u64) {
     let stride = 1;
     let ab = (number_of_columns / 2 - 1) as f64;
 
@@ -65,9 +65,8 @@ fn all_vs_all(m1: Matrix, len_m1: u64, m3: Matrix, len_m3: u64, number_of_column
     // }
     
     // Sorting
-    let chunk_size = 1_000_000;
     // let external_sorter: ExternalSorter<CorResult> = ExternalSorter::new(total_number_of_elements.clone(), None);
-    let external_sorter: ExternalSorter<CorResult> = ExternalSorter::new(chunk_size, None);
+    let external_sorter: ExternalSorter<CorResult> = ExternalSorter::new(sort_chunk_size, None);
     let sorted = external_sorter.sort(correlations_and_p_values).unwrap();
     
     // println!("sorted.count -> {}", sorted.count());
@@ -80,7 +79,6 @@ fn all_vs_all(m1: Matrix, len_m1: u64, m3: Matrix, len_m3: u64, number_of_column
     let ranked = sorted.enumerate();
 
     // Filtering
-    let correlation_threhold = 0.7;
     let filtered = ranked.filter(|(_, cor_and_p_value)| cor_and_p_value.as_ref().unwrap().r.abs() >= correlation_threhold);
     
     // println!("Cantidad de tuplas a ajustar -> {}", filtered.count());
@@ -136,12 +134,12 @@ fn main() {
     // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_mediano.csv";
 
     // Grandes
-    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
-    // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv";
+    let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
+    let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv";
     
     // Masivos
-    let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
-    let m3_path = "/home/genaro/Descargas/ParaRust/cna_rust_gigante.csv";
+    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
+    // let m3_path = "/home/genaro/Descargas/ParaRust/cna_rust_gigante.csv";
 
 
     let m1 = get_df(m1_path);
@@ -158,9 +156,7 @@ fn main() {
     
     let now = Instant::now();
     
-
-	// Grandes
-	all_vs_all(m1, len_m1 as u64, m3, len_m3 as u64, number_of_columns);
+	all_vs_all(m1, len_m1 as u64, m3, len_m3 as u64, number_of_columns, 0.7, 2_000_000);
 	
     println!("Tiempo del experimento -> {} segundos", now.elapsed().as_secs());
 }
