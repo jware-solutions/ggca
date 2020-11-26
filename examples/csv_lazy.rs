@@ -126,16 +126,16 @@ fn get_df(path: &str) -> Matrix {
 
 fn main() {
     // Chicos
-    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust.csv";
-    // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust.csv";
+    let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust.csv";
+    let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust.csv";
 
     // Medianos
     // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_mediano.csv";
     // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_mediano.csv";
 
     // Grandes
-    let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
-    let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv";
+    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
+    // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv";
     
     // Masivos
     // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
