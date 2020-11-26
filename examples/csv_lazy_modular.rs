@@ -55,7 +55,7 @@ type Matrix = Box<dyn Iterator<Item = TupleExpressionValues>>;
 struct CorResult {
     gene: String,
     gem: String,
-    r: f64,
+    r: f32,
     p_value: f64,
     p_value_adjusted: Option<f64>
 }
@@ -72,7 +72,6 @@ impl Ord for CorResult {
 impl PartialOrd for CorResult {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.p_value.partial_cmp(&other.p_value)
-        // other.p_value.partial_cmp(&self.p_value)
     }
 }
 
@@ -80,7 +79,7 @@ impl ExternallySortable for CorResult {
     fn get_size(&self) -> u64 { 1 }
 }
 
-fn all_vs_all(m1: Matrix, len_m1: u64, m3: Matrix, len_m3: u64, number_of_columns: usize, correlation_threhold: f64, sort_chunk_size: u64) {
+fn all_vs_all(m1: Matrix, len_m1: u64, m3: Matrix, len_m3: u64, number_of_columns: usize, correlation_threhold: f32, sort_chunk_size: u64) {
     let stride = 1;
     let ab = (number_of_columns / 2 - 1) as f64;
 
@@ -103,7 +102,7 @@ fn all_vs_all(m1: Matrix, len_m1: u64, m3: Matrix, len_m3: u64, number_of_column
         let x = 0.5 * (1.0 - r.abs());
 		let p_value = 2.0 * beta_P(x, ab, ab);
 
-        CorResult{gene, gem, r, p_value, p_value_adjusted: None}
+        CorResult{gene, gem, r: r as f32, p_value, p_value_adjusted: None}
     });
 
     // println!("correlations_and_p_values.count -> {}", correlations_and_p_values.count());
@@ -159,31 +158,33 @@ fn get_df(path: &str) -> Matrix {
         .delimiter(b'\t')
 		.from_path(path).unwrap();
 	
-	let parse_record = |record_result: Result<StringRecord, Error>| {
+	let dataframe_parsed = rdr.into_records().enumerate().map(|(row_idx, record_result)| {
         let record = record_result.unwrap();
         let mut it = record.into_iter();
         let gene_or_gem = it.next().unwrap().to_string();
-        let values = it.map(|cell| cell.parse::<f64>().unwrap()).collect::<Vec<f64>>();
+        let values = it.enumerate().map(|(column_idx, cell)| {
+            // It's added 2 as we're not considering headers row or index column
+            cell.parse::<f64>().expect(&format!("Row {} column {} has an invalid value", row_idx + 2, column_idx + 2))
+        }).collect::<Vec<f64>>();
 
         (gene_or_gem, values)
-    };
-    
-	// Box<Iterator<Item = Box<Iterator<Item = f64>>>>
-    Box::new(rdr.into_records().map(parse_record))
+    });
+
+    Box::new(dataframe_parsed)
 }
 
 fn main() {
     // Chicos
-    let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust.csv";
-    let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust.csv";
+    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust.csv";
+    // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust.csv";
 
     // Medianos
     // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_mediano.csv";
     // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_mediano.csv";
 
     // Grandes
-    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
-    // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv";
+    let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
+    let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv";
     
     // Masivos
     // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
