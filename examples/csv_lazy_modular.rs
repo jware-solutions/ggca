@@ -21,14 +21,14 @@ impl Adjustment for BenjaminiHochberg {
     fn new(total_number_of_elements: u64) -> Self {
         BenjaminiHochberg {
 			total_number_of_elements: total_number_of_elements as f64,
-			previous_p_value: 99999.9
+			previous_p_value: -1.0
 		}
     }
 
     fn adjust(&mut self, p_value: f64, rank: usize) -> f64 {
         let valid_rank = rank + 1;
         let q_value = p_value * (self.total_number_of_elements / valid_rank as f64);
-        let q_value = q_value.min(1.0).min(self.previous_p_value);
+        let q_value = q_value.min(1.0).max(self.previous_p_value);
         self.previous_p_value = q_value;
         q_value
     }

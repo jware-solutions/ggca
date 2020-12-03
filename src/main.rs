@@ -139,7 +139,7 @@ fn get_df(path: &str) -> Matrix {
 }
 
 fn main() {
-    // Chicos
+    // Chicos (reducido)
     let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust.csv";
     let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust.csv";
 
