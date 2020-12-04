@@ -22,10 +22,9 @@ fn main() {
     // let m3_path = "/home/genaro/Descargas/ParaRust/cna_rust_gigante.csv";
 
 
-    let experiment = new_from_files(m1_path.to_string(), m3_path.to_string());
     let now = Instant::now();
     
-	// all_vs_all(m1, len_m1 as u64, m3, len_m3 as u64, number_of_columns, CorrelationMethod::Kendall, 0.7, 2_000_000, AdjustmentMethod::BenjaminiHochberg);
+    let experiment = new_from_files(m1_path.to_string(), m3_path.to_string());
 	experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiYekutieli);
 	
     println!("Tiempo del experimento -> {} segundos", now.elapsed().as_secs());
