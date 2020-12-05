@@ -89,10 +89,11 @@ impl Correlation for Kendall {
     }
 }
 
+#[derive(Clone)]
 pub enum CorrelationMethod {
-    Pearson,
-    Spearman,
-    Kendall,
+    Spearman = 1,
+    Kendall = 2,
+    Pearson = 3,
 }
 
 pub fn get_correlation_method(

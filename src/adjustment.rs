@@ -75,10 +75,11 @@ impl Adjustment for BenjaminiYekutieli {
 	}
 }
 
+#[derive(Clone)]
 pub enum AdjustmentMethod {
-	Bonferroni,
-	BenjaminiHochberg,
-	BenjaminiYekutieli
+	BenjaminiHochberg = 1,
+	BenjaminiYekutieli = 2,
+	Bonferroni = 3,
 }
 
 pub fn get_adjustment_method(adjustment_method: AdjustmentMethod, total_number_of_elements: f64) -> Box<dyn Adjustment> {

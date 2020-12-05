@@ -1,8 +1,14 @@
 [package]
+# TODO: change name
 name = "pruebas_correlation"
 version = "0.1.0"
 authors = ["Genarito <genarocamele@hotmail.com>"]
 edition = "2018"
+
+[lib]
+name = "pruebas_correlation"
+crate-type = ["cdylib", "rlib"]
+# crate-type = ["rlib", "dylib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,3 +19,9 @@ external_sort = "^0.1.1"
 serde = { version = "1.0", features = ["derive"] }
 csv = "1.1"
 kendalls = "0.1.2"
+tempfile = "3.1.0"
+
+
+[dependencies.pyo3]
+version = "0.12.4"
+features = ["extension-module"]
