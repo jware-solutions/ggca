@@ -11,8 +11,7 @@ pub mod experiment {
     use external_sort::{ExternalSorter, ExternallySortable};
     use itertools::iproduct;
     use serde::{Deserialize, Serialize};
-    use std::{cmp::Ordering, fs::File};
-    use tempfile::NamedTempFile;
+    use std::cmp::Ordering;
 
     type TupleExpressionValues = (String, Vec<f64>);
     pub type Batch = Vec<TupleExpressionValues>;
@@ -214,77 +213,6 @@ pub mod experiment {
         }
     }
 
-    pub struct ExperimentFromBatches {
-        file_1_writer: csv::Writer<File>,
-        file_1_path: String,
-        file_2_writer: csv::Writer<File>,
-        file_2_path: String,
-    }
-
-    impl ExperimentFromBatches {
-        fn cast_float_vec_to_string(&self, x: &Vec<f64>) -> Vec<String> {
-            x.into_iter().map(|x| x.to_string()).collect()
-        }
-
-        fn save_batch_in_file(
-            &mut self,
-            element_batch: &TupleExpressionValues,
-            is_first_wtr: bool,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            let values_1_string = self.cast_float_vec_to_string(&element_batch.1);
-
-            let writer = if is_first_wtr {
-                &mut self.file_1_writer
-            } else {
-                &mut self.file_2_writer
-            };
-            writer.write_field(&element_batch.0)?;
-            writer.write_record(&values_1_string)?;
-
-            Ok(())
-        }
-
-        pub fn add_batch(
-            &mut self,
-            batch_1: Batch,
-            batch_2: Batch,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            for i in 0..batch_1.len() {
-                let current_elem_batch_1 = &batch_1[i];
-                let current_elem_batch_2 = &batch_2[i];
-                self.save_batch_in_file(current_elem_batch_1, true)?;
-                self.save_batch_in_file(current_elem_batch_2, false)?;
-            }
-
-            Ok(())
-        }
-    }
-
-    impl Computation for ExperimentFromBatches {
-        fn compute(
-            &self,
-            correlation_method: CorrelationMethod,
-            correlation_threhold: f32,
-            sort_chunk_size: u64,
-            adjustment_method: AdjustmentMethod,
-        ) {
-            let (m1, len_m1, m3, len_m3, number_of_columns) =
-                self.get_both_df_and_shape(self.file_1_path.as_str(), self.file_2_path.as_str());
-
-            self.all_vs_all(
-                m1,
-                len_m1,
-                m3,
-                len_m3,
-                number_of_columns,
-                correlation_method,
-                correlation_threhold,
-                sort_chunk_size,
-                adjustment_method,
-            )
-        }
-    }
-
     pub fn new_from_files(file_1_path: String, file_2_path: String) -> ExperimentFromFiles {
         ExperimentFromFiles {
             file_1_path,
@@ -292,23 +220,9 @@ pub mod experiment {
         }
     }
 
-    pub fn new_from_batches() -> ExperimentFromBatches {
-        let file_1_temp = NamedTempFile::new().unwrap();
-        let file_1_path = file_1_temp.path().to_str().unwrap();
-        let file_2_temp = NamedTempFile::new().unwrap();
-        let file_2_path = file_2_temp.path().to_str().unwrap();
-
-        ExperimentFromBatches {
-            file_1_writer: csv::Writer::from_path(file_1_path).unwrap(),
-            file_1_path: file_1_path.to_string(),
-            file_2_writer: csv::Writer::from_path(file_2_path).unwrap(),
-            file_2_path: file_2_path.to_string(),
-        }
-    }
-
     /// A Python module implemented in Rust.
     #[pymodule]
-    fn pruebas_correlation(py: Python, m: &PyModule) -> PyResult<()> {
+    fn pruebas_correlation(_py: Python, m: &PyModule) -> PyResult<()> {
         m.add_function(wrap_pyfunction!(prueba, m)?)?;
 
         Ok(())
@@ -340,4 +254,3 @@ pub mod experiment {
         Ok(())
     }
 }
-
