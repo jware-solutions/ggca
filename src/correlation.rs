@@ -7,7 +7,7 @@ use rgsl::{
 };
 
 pub trait Correlation {
-    fn correlate(&self, x: &[f64], y: &[f64]) -> (f32, f64);
+    fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64);
 }
 
 pub struct Pearson {
@@ -23,7 +23,7 @@ impl Pearson {
 }
 
 impl Correlation for Pearson {
-    fn correlate(&self, x: &[f64], y: &[f64]) -> (f32, f64) {
+    fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
         let r = correlation(x, 1, y, 1, self.n);
 
         // P-value
@@ -31,7 +31,7 @@ impl Correlation for Pearson {
         let x = 0.5 * (1.0 - r.abs());
         let p_value = 2.0 * beta_P(x, self.ab, self.ab);
 
-        (r as f32, p_value)
+        (r, p_value)
     }
 }
 
@@ -50,7 +50,7 @@ impl Spearman {
 }
 
 impl Correlation for Spearman {
-    fn correlate(&self, x: &[f64], y: &[f64]) -> (f32, f64) {
+    fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
         let mut vec = Vec::with_capacity(2 * self.n);
         let workspace: &mut [f64] = vec.as_mut_slice();
         let rs = spearman(x, 1, y, 1, self.n, workspace);
@@ -62,7 +62,7 @@ impl Correlation for Spearman {
         let ccdf = tdist_Q(t.abs(), self.degrees_of_freedom);
         let p_value = 2.0 * ccdf;
 
-        (rs as f32, p_value)
+        (rs, p_value)
     }
 }
 
@@ -77,7 +77,7 @@ impl Kendall {
 }
 
 impl Correlation for Kendall {
-    fn correlate(&self, x: &[f64], y: &[f64]) -> (f32, f64) {
+    fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
         let r = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
             a.partial_cmp(&b).unwrap_or(Ordering::Greater)
         }).unwrap();
@@ -85,7 +85,7 @@ impl Correlation for Kendall {
         // P-value
         let p_value = 1.0 - kendalls::significance(r, self.n);
 
-        (r as f32, p_value)
+        (r, p_value)
     }
 }
 

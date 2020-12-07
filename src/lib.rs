@@ -26,7 +26,7 @@ pub mod experiment {
         #[pyo3(get, set)]
         gem: String,
         #[pyo3(get, set)]
-        r: f32,
+        r: f64,
         #[pyo3(get, set)]
         p_value: f64,
         #[pyo3(get, set)]
@@ -63,7 +63,7 @@ pub mod experiment {
             len_m3: u64,
             number_of_columns: usize,
             correlation_method: CorrelationMethod,
-            correlation_threhold: f32,
+            correlation_threhold: f64,
             sort_chunk_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> VecOfResults {
@@ -85,7 +85,7 @@ pub mod experiment {
                 CorResult {
                     gene,
                     gem,
-                    r: r as f32,
+                    r,
                     p_value,
                     p_value_adjusted: None,
                 }
@@ -186,7 +186,7 @@ pub mod experiment {
         fn compute(
             &self,
             correlation_method: CorrelationMethod,
-            correlation_threhold: f32,
+            correlation_threhold: f64,
             sort_chunk_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> VecOfResults;
@@ -201,7 +201,7 @@ pub mod experiment {
         fn compute(
             &self,
             correlation_method: CorrelationMethod,
-            correlation_threhold: f32,
+            correlation_threhold: f64,
             sort_chunk_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> VecOfResults {
@@ -231,18 +231,18 @@ pub mod experiment {
 
     /// A Python module implemented in Rust.
     #[pymodule]
-    fn pruebas_correlation(_py: Python, m: &PyModule) -> PyResult<()> {
-        m.add_function(wrap_pyfunction!(prueba, m)?)?;
+    fn ggca(_py: Python, m: &PyModule) -> PyResult<()> {
+        m.add_function(wrap_pyfunction!(correlate, m)?)?;
 
         Ok(())
     }
 
     #[pyfunction]
-    pub fn prueba(
+    pub fn correlate(
         file_1_path: String,
         file_2_path: String,
         correlation_method: i32,
-        correlation_threhold: f32,
+        correlation_threhold: f64,
         sort_chunk_size: u64,
         adjustment_method: i32,
     ) -> PyResult<VecOfResults> {

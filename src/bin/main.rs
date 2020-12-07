@@ -1,7 +1,7 @@
 use std::time::Instant;
-use pruebas_correlation::experiment::{new_from_files, Computation};
-use pruebas_correlation::adjustment::AdjustmentMethod;
-use pruebas_correlation::correlation::CorrelationMethod;
+use ggca::experiment::{new_from_files, Computation};
+use ggca::adjustment::AdjustmentMethod;
+use ggca::correlation::CorrelationMethod;
 
 
 fn main() {
