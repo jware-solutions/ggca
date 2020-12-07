@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use csv::{ReaderBuilder, StringRecord, Error};
+use csv::ReaderBuilder;
 use itertools::iproduct;
 use rgsl::{randist::beta::beta_P, statistics::correlation};
 use serde::{Serialize, Deserialize};
