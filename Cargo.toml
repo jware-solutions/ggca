@@ -7,8 +7,7 @@ edition = "2018"
 
 [lib]
 name = "pruebas_correlation"
-crate-type = ["cdylib", "rlib"]
-# crate-type = ["rlib", "dylib"]
+crate-type = ["rlib", "cdylib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,4 +23,8 @@ tempfile = "3.1.0"
 
 [dependencies.pyo3]
 version = "0.12.4"
-features = ["extension-module"]
+
+[features]
+# NOTE: read this https://pyo3.rs/master/faq.html#i-cant-run-cargo-test-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]

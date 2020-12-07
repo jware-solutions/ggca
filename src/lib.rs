@@ -13,16 +13,23 @@ pub mod experiment {
     use serde::{Deserialize, Serialize};
     use std::cmp::Ordering;
 
+    type VecOfResults = Vec<CorResult>;
     type TupleExpressionValues = (String, Vec<f64>);
     pub type Batch = Vec<TupleExpressionValues>;
     type LazyMatrix = Box<dyn Iterator<Item = TupleExpressionValues>>;
 
+    #[pyclass]
     #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
-    struct CorResult {
+    pub struct CorResult {
+        #[pyo3(get, set)]
         gene: String,
+        #[pyo3(get, set)]
         gem: String,
+        #[pyo3(get, set)]
         r: f32,
+        #[pyo3(get, set)]
         p_value: f64,
+        #[pyo3(get, set)]
         p_value_adjusted: Option<f64>,
     }
 
@@ -59,7 +66,7 @@ pub mod experiment {
             correlation_threhold: f32,
             sort_chunk_size: u64,
             adjustment_method: AdjustmentMethod,
-        ) {
+        ) -> VecOfResults {
             let total_number_of_elements: u64 = len_m1 * len_m3;
 
             // We need a collected object for right-side of the iproduct macro
@@ -105,24 +112,26 @@ pub mod experiment {
                 let q_value = adjustment_struct.adjust(p_value, rank);
 
                 cor_and_p_value.as_mut().unwrap().p_value_adjusted = Some(q_value);
-                cor_and_p_value
+                cor_and_p_value.unwrap()
             });
 
-            let mut number_of_result_elements = 0;
-            for elem in adjusted {
-                let valid_elem = elem.unwrap();
-                println!(
-                    "{} x {} -> Cor: {} | p-value: {:+e} | adjusted p-value {:+e}",
-                    valid_elem.gene,
-                    valid_elem.gem,
-                    valid_elem.r,
-                    valid_elem.p_value,
-                    valid_elem.p_value_adjusted.unwrap()
-                );
-                number_of_result_elements += 1;
-            }
+            adjusted.collect::<VecOfResults>()
 
-            println!("Cantidad final de datos -> {}", number_of_result_elements);
+            // let mut number_of_result_elements = 0;
+            // for elem in adjusted {
+            //     let valid_elem = elem.unwrap();
+            //     println!(
+            //         "{} x {} -> Cor: {} | p-value: {:+e} | adjusted p-value {:+e}",
+            //         valid_elem.gene,
+            //         valid_elem.gem,
+            //         valid_elem.r,
+            //         valid_elem.p_value,
+            //         valid_elem.p_value_adjusted.unwrap()
+            //     );
+            //     number_of_result_elements += 1;
+            // }
+
+            // println!("Cantidad final de datos -> {}", number_of_result_elements);
         }
 
         fn get_df(&self, path: &str) -> LazyMatrix {
@@ -180,7 +189,7 @@ pub mod experiment {
             correlation_threhold: f32,
             sort_chunk_size: u64,
             adjustment_method: AdjustmentMethod,
-        );
+        ) -> VecOfResults;
     }
 
     pub struct ExperimentFromFiles {
@@ -195,7 +204,7 @@ pub mod experiment {
             correlation_threhold: f32,
             sort_chunk_size: u64,
             adjustment_method: AdjustmentMethod,
-        ) {
+        ) -> VecOfResults {
             let (m1, len_m1, m3, len_m3, number_of_columns) =
                 self.get_both_df_and_shape(self.file_1_path.as_str(), self.file_2_path.as_str());
 
@@ -236,7 +245,7 @@ pub mod experiment {
         correlation_threhold: f32,
         sort_chunk_size: u64,
         adjustment_method: i32,
-    ) -> PyResult<()> {
+    ) -> PyResult<VecOfResults> {
         let experiment = new_from_files(file_1_path, file_2_path);
         let correlation_method = match correlation_method {
             1 => CorrelationMethod::Spearman,
@@ -250,7 +259,7 @@ pub mod experiment {
             _ => AdjustmentMethod::Bonferroni
         };
 
-        experiment.compute(correlation_method, correlation_threhold, sort_chunk_size, adjustment_method);
-        Ok(())
+        let result = experiment.compute(correlation_method, correlation_threhold, sort_chunk_size, adjustment_method);
+        Ok(result)
     }
 }
