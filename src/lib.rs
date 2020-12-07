@@ -26,11 +26,11 @@ pub mod experiment {
         #[pyo3(get, set)]
         gem: String,
         #[pyo3(get, set)]
-        r: f64,
+        correlation: f64,
         #[pyo3(get, set)]
         p_value: f64,
         #[pyo3(get, set)]
-        p_value_adjusted: Option<f64>,
+        adjusted_p_value: Option<f64>,
     }
 
     impl Eq for CorResult {}
@@ -79,15 +79,15 @@ pub mod experiment {
                 let gene = tuple1.0;
                 let gem = tuple3.0;
 
-                let (r, p_value) =
+                let (correlation, p_value) =
                     correlation_struct.correlate(tuple1.1.as_slice(), tuple3.1.as_slice());
 
                 CorResult {
                     gene,
                     gem,
-                    r,
+                    correlation,
                     p_value,
-                    p_value_adjusted: None,
+                    adjusted_p_value: None,
                 }
             });
 
@@ -101,7 +101,7 @@ pub mod experiment {
 
             // Filtering
             let filtered = ranked.filter(|(_, cor_and_p_value)| {
-                cor_and_p_value.as_ref().unwrap().r.abs() >= correlation_threhold
+                cor_and_p_value.as_ref().unwrap().correlation.abs() >= correlation_threhold
             });
 
             // Adjustment
@@ -111,27 +111,11 @@ pub mod experiment {
                 let p_value = cor_and_p_value.as_ref().unwrap().p_value;
                 let q_value = adjustment_struct.adjust(p_value, rank);
 
-                cor_and_p_value.as_mut().unwrap().p_value_adjusted = Some(q_value);
+                cor_and_p_value.as_mut().unwrap().adjusted_p_value = Some(q_value);
                 cor_and_p_value.unwrap()
             });
 
             adjusted.collect::<VecOfResults>()
-
-            // let mut number_of_result_elements = 0;
-            // for elem in adjusted {
-            //     let valid_elem = elem.unwrap();
-            //     println!(
-            //         "{} x {} -> Cor: {} | p-value: {:+e} | adjusted p-value {:+e}",
-            //         valid_elem.gene,
-            //         valid_elem.gem,
-            //         valid_elem.r,
-            //         valid_elem.p_value,
-            //         valid_elem.p_value_adjusted.unwrap()
-            //     );
-            //     number_of_result_elements += 1;
-            // }
-
-            // println!("Cantidad final de datos -> {}", number_of_result_elements);
         }
 
         fn get_df(&self, path: &str) -> LazyMatrix {
