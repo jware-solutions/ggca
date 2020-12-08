@@ -6,7 +6,7 @@ edition = "2018"
 
 [lib]
 name = "ggca"
-crate-type = ["rlib", "cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,13 +18,13 @@ serde = { version = "1.0", features = ["derive"] }
 csv = "1.1"
 kendalls = "0.1.2"
 tempfile = "3.1.0"
+pyo3 = { version = "0.12.4", features = ["extension-module"]}
 
-
-[dependencies.pyo3]
-version = "0.12.4"
 
 [features]
-# NOTE: read this https://pyo3.rs/master/faq.html#i-cant-run-cargo-test-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
 # This prevent errors with get/set macro
+# Read this https://github.com/PyO3/pyo3/issues/1084
+# Solved using this: https://pyo3.rs/master/faq.html#i-cant-run-cargo-test-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
+# It will be fixed once https://github.com/PyO3/pyo3/pull/1123 is merged
 extension-module = ["pyo3/extension-module"]
 default = ["extension-module"]
