@@ -25,7 +25,11 @@ fn main() {
     let now = Instant::now();
     
     let experiment = new_from_files(m1_path.to_string(), m3_path.to_string());
-	experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiYekutieli);
+	let result = experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiYekutieli);
 	
     println!("Tiempo del experimento -> {} segundos", now.elapsed().as_secs());
+
+    for cor_p_value in result.iter() {
+        println!("{:?}", cor_p_value);
+    }
 }

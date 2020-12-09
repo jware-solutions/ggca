@@ -16,16 +16,15 @@ GSL = "2.0.1"
 external_sort = "^0.1.1"
 serde = { version = "1.0", features = ["derive"] }
 csv = "1.1"
-kendalls = "0.1.2"
+kendalls = "0.1.4"
 tempfile = "3.1.0"
-pyo3 = { version = "0.12.4", features = ["extension-module"]}
+pyo3 = "0.12.4"
 
 
-# TODO: add when an executable is needed
-# [features]
+[features]
 # This prevent errors with get/set macro
 # Read this https://github.com/PyO3/pyo3/issues/1084
 # Solved using this: https://pyo3.rs/master/faq.html#i-cant-run-cargo-test-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
 # It will be fixed once https://github.com/PyO3/pyo3/pull/1123 is merged
-# extension-module = ["pyo3/extension-module"]
-# default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]
