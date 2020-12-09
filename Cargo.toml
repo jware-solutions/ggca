@@ -1,6 +1,6 @@
 [package]
 name = "ggca"
-version = "0.1.0"
+version = "0.1.7"
 authors = ["JWare <jware.organization@gmail.com>"]
 edition = "2018"
 
@@ -21,10 +21,11 @@ tempfile = "3.1.0"
 pyo3 = { version = "0.12.4", features = ["extension-module"]}
 
 
-[features]
+# TODO: add when an executable is needed
+# [features]
 # This prevent errors with get/set macro
 # Read this https://github.com/PyO3/pyo3/issues/1084
 # Solved using this: https://pyo3.rs/master/faq.html#i-cant-run-cargo-test-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
 # It will be fixed once https://github.com/PyO3/pyo3/pull/1123 is merged
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
+# extension-module = ["pyo3/extension-module"]
+# default = ["extension-module"]
