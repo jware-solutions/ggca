@@ -87,7 +87,7 @@ pub mod experiment {
             number_of_columns: usize,
             correlation_method: CorrelationMethod,
             correlation_threhold: f64,
-            _sort_chunk_size: u64, // TODO: remove
+            sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> VecOfResults {
             let total_number_of_elements: u64 = len_m1 * len_m3;
@@ -118,8 +118,15 @@ pub mod experiment {
                 });
 
             // Sorting
-            let mut sorter = ExternalSorter::new(1_073_741_824); // 1GB
-            let sorted = sorter.sort(correlations_and_p_values).unwrap();
+            let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
+                AdjustmentMethod::Bonferroni => Box::new(correlations_and_p_values),
+                _ => {
+                    // Benjamini-Hochberg and Benajmini-Yekutieli needs sort by p-value to
+                    // make the adjustment
+                    let mut sorter = ExternalSorter::new(sort_buf_size as usize);
+                    Box::new(sorter.sort(correlations_and_p_values).unwrap())
+                }
+            };
 
             // Ranking
             let ranked = sorted.enumerate();
@@ -196,7 +203,7 @@ pub mod experiment {
             &self,
             correlation_method: CorrelationMethod,
             correlation_threhold: f64,
-            sort_chunk_size: u64,
+            sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> VecOfResults;
     }
@@ -211,7 +218,7 @@ pub mod experiment {
             &self,
             correlation_method: CorrelationMethod,
             correlation_threhold: f64,
-            sort_chunk_size: u64,
+            sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> VecOfResults {
             let (m1, len_m1, m3, len_m3, number_of_columns) =
@@ -225,7 +232,7 @@ pub mod experiment {
                 number_of_columns,
                 correlation_method,
                 correlation_threhold,
-                sort_chunk_size,
+                sort_buf_size,
                 adjustment_method,
             )
         }
@@ -253,7 +260,7 @@ pub mod experiment {
         file_2_path: String,
         correlation_method: i32,
         correlation_threhold: f64,
-        sort_chunk_size: u64,
+        sort_buf_size: u64,
         adjustment_method: i32,
     ) -> PyResult<VecOfResults> {
         py.allow_threads(|| {
@@ -273,7 +280,7 @@ pub mod experiment {
             let result = experiment.compute(
                 correlation_method,
                 correlation_threhold,
-                sort_chunk_size,
+                sort_buf_size,
                 adjustment_method,
             );
             Ok(result)
