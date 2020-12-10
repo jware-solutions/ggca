@@ -13,12 +13,16 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 itertools = "0.9.0"
 GSL = "2.0.1"
-external_sort = "^0.1.1"
-serde = { version = "1.0", features = ["derive"] }
 csv = "1.1"
 kendalls = "0.1.4"
-tempfile = "3.1.0"
 pyo3 = "0.12.4"
+serde = { version = "1.0.14", default-features = false }
+serde_derive = { version = "1.0.14", default-features = false }
+bincode = "1.3.1"
+rayon = "1.5.0" # TODO: remove when replaces external_sort.rs for crate extsort-rs
+tempdir = "^0.3.5" # TODO: remove when replaces external_sort.rs for crate extsort-rs
+
+[dev-dependencies]
 
 
 [features]

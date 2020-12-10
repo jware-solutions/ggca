@@ -1,16 +1,19 @@
 pub mod adjustment;
 pub mod correlation;
+mod external_sort;
 
 pub mod experiment {
+    use crate::correlation::{get_correlation_method, CorrelationMethod};
+    use crate::{
+        adjustment::{get_adjustment_method, AdjustmentMethod},
+        external_sort::{Sortable, ExternalSorter}
+    };
+    use csv::ReaderBuilder;
     use pyo3::prelude::*;
     use pyo3::wrap_pyfunction;
-    extern crate external_sort;
-    use crate::adjustment::{get_adjustment_method, AdjustmentMethod};
-    use crate::correlation::{get_correlation_method, CorrelationMethod};
-    use csv::ReaderBuilder;
-    use external_sort::{ExternalSorter, ExternallySortable};
+    use std::{fmt::Debug, io::{Read, Write}};
     use itertools::iproduct;
-    use serde::{Deserialize, Serialize};
+    use serde_derive::{Deserialize, Serialize};
     use std::cmp::Ordering;
 
     type VecOfResults = Vec<CorResult>;
@@ -33,6 +36,21 @@ pub mod experiment {
         adjusted_p_value: Option<f64>,
     }
 
+    impl std::fmt::Display for CorResult {
+        // This trait requires `fmt` with this exact signature.
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            // Write strictly the first element into the supplied output
+            // stream: `f`. Returns `fmt::Result` which indicates whether the
+            // operation succeeded or failed. Note that `write!` uses syntax which
+            // is very similar to `println!`.
+            write!(
+                f,
+                "Gene -> {} | GEM -> {}\n\tCor -> {}\n\tP-value -> {:+e}\n\tAdjusted p-value -> {:+e}",
+                self.gene, self.gem, &self.correlation, &self.p_value, &self.adjusted_p_value.unwrap()
+            )
+        }
+    }
+
     impl Eq for CorResult {}
 
     impl Ord for CorResult {
@@ -48,9 +66,14 @@ pub mod experiment {
         }
     }
 
-    impl ExternallySortable for CorResult {
-        fn get_size(&self) -> u64 {
-            1
+    impl Sortable for CorResult {
+        fn encode<W: Write>(&self, writer: &mut W) {
+            let serialized = bincode::serialize(self).unwrap();
+            writer.write_all(&serialized[..]).unwrap();
+        }
+
+        fn decode<R: Read>(reader: &mut R) -> Option<Self> {
+            bincode::deserialize_from(reader).ok()
         }
     }
 
@@ -64,55 +87,57 @@ pub mod experiment {
             number_of_columns: usize,
             correlation_method: CorrelationMethod,
             correlation_threhold: f64,
-            sort_chunk_size: u64,
+            _sort_chunk_size: u64, // TODO: remove
             adjustment_method: AdjustmentMethod,
         ) -> VecOfResults {
             let total_number_of_elements: u64 = len_m1 * len_m3;
 
-            // We need a collected object for right-side of the iproduct macro
-            // TODO: make dinamic checking for m1 and m3 length
-            let m3_collected = m3.collect::<Vec<TupleExpressionValues>>();
+            // We need a collected object for right-side of the iproduct macro. In this
+            // case it gets the smaller one to collect
+            let (lazy_m, collected_m) = if len_m1 > len_m3 { (m1, m3) } else { (m3, m1) };
+
+            let collected_m = collected_m.collect::<Vec<TupleExpressionValues>>();
 
             let correlation_struct = get_correlation_method(correlation_method, number_of_columns);
-            let correlations_and_p_values = iproduct!(m1, m3_collected).map(|(tuple1, tuple3)| {
-                // Gene and GEM
-                let gene = tuple1.0;
-                let gem = tuple3.0;
+            let correlations_and_p_values =
+                iproduct!(lazy_m, collected_m).map(|(tuple1, tuple3)| {
+                    // Gene and GEM
+                    let gene = tuple1.0;
+                    let gem = tuple3.0;
 
-                let (correlation, p_value) =
-                    correlation_struct.correlate(tuple1.1.as_slice(), tuple3.1.as_slice());
+                    let (correlation, p_value) =
+                        correlation_struct.correlate(tuple1.1.as_slice(), tuple3.1.as_slice());
 
-                CorResult {
-                    gene,
-                    gem,
-                    correlation,
-                    p_value,
-                    adjusted_p_value: None,
-                }
-            });
+                    CorResult {
+                        gene,
+                        gem,
+                        correlation,
+                        p_value,
+                        adjusted_p_value: None,
+                    }
+                });
 
             // Sorting
-            let external_sorter: ExternalSorter<CorResult> =
-                ExternalSorter::new(sort_chunk_size, None);
-            let sorted = external_sorter.sort(correlations_and_p_values).unwrap();
+            let mut sorter = ExternalSorter::new(1_073_741_824); // 1GB
+            let sorted = sorter.sort(correlations_and_p_values).unwrap();
 
             // Ranking
             let ranked = sorted.enumerate();
 
             // Filtering
             let filtered = ranked.filter(|(_, cor_and_p_value)| {
-                cor_and_p_value.as_ref().unwrap().correlation.abs() >= correlation_threhold
+                cor_and_p_value.correlation.abs() >= correlation_threhold
             });
 
             // Adjustment
             let mut adjustment_struct =
                 get_adjustment_method(adjustment_method, total_number_of_elements as f64);
             let adjusted = filtered.map(|(rank, mut cor_and_p_value)| {
-                let p_value = cor_and_p_value.as_ref().unwrap().p_value;
+                let p_value = cor_and_p_value.p_value;
                 let q_value = adjustment_struct.adjust(p_value, rank);
 
-                cor_and_p_value.as_mut().unwrap().adjusted_p_value = Some(q_value);
-                cor_and_p_value.unwrap()
+                cor_and_p_value.adjusted_p_value = Some(q_value);
+                cor_and_p_value
             });
 
             adjusted.collect::<VecOfResults>()
@@ -223,6 +248,7 @@ pub mod experiment {
 
     #[pyfunction]
     pub fn correlate(
+        py: Python,
         file_1_path: String,
         file_2_path: String,
         correlation_method: i32,
@@ -230,20 +256,27 @@ pub mod experiment {
         sort_chunk_size: u64,
         adjustment_method: i32,
     ) -> PyResult<VecOfResults> {
-        let experiment = new_from_files(file_1_path, file_2_path);
-        let correlation_method = match correlation_method {
-            1 => CorrelationMethod::Spearman,
-            2 => CorrelationMethod::Kendall,
-            _ => CorrelationMethod::Pearson
-        };
+        py.allow_threads(|| {
+            let experiment = new_from_files(file_1_path, file_2_path);
+            let correlation_method = match correlation_method {
+                1 => CorrelationMethod::Spearman,
+                2 => CorrelationMethod::Kendall,
+                _ => CorrelationMethod::Pearson,
+            };
 
-        let adjustment_method = match adjustment_method {
-            1 => AdjustmentMethod::BenjaminiHochberg,
-            2 => AdjustmentMethod::BenjaminiYekutieli,
-            _ => AdjustmentMethod::Bonferroni
-        };
+            let adjustment_method = match adjustment_method {
+                1 => AdjustmentMethod::BenjaminiHochberg,
+                2 => AdjustmentMethod::BenjaminiYekutieli,
+                _ => AdjustmentMethod::Bonferroni,
+            };
 
-        let result = experiment.compute(correlation_method, correlation_threhold, sort_chunk_size, adjustment_method);
-        Ok(result)
+            let result = experiment.compute(
+                correlation_method,
+                correlation_threhold,
+                sort_chunk_size,
+                adjustment_method,
+            );
+            Ok(result)
+        })
     }
 }
