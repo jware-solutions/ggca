@@ -2,34 +2,25 @@ use std::time::Instant;
 use ggca::experiment::{new_from_files, Computation};
 use ggca::adjustment::AdjustmentMethod;
 use ggca::correlation::CorrelationMethod;
+use pyo3::PyResult;
 
 
-fn main() {
-    // Chicos (reducido)
-    let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust.csv";
-    let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust.csv";
-
-    // Medianos
-    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_mediano.csv";
-    // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_mediano.csv";
-
-    // Grandes
-    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
-    // let m3_path = "/home/genaro/Descargas/ParaRust/mirna_rust_gigante.csv";
-    
-    // Masivos
-    // let m1_path = "/home/genaro/Descargas/ParaRust/mrna_rust_gigante.csv";
-    // let m3_path = "/home/genaro/Descargas/ParaRust/cna_rust_gigante.csv";
-
+fn main() -> PyResult<()> {
+    // File's paths
+    let df1_path = "mrna.csv";
+    let df2_path = "mirna.csv";
 
     let now = Instant::now();
     
-    let experiment = new_from_files(m1_path.to_string(), m3_path.to_string());
-	let result = experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiYekutieli);
+    let experiment = new_from_files(df1_path.to_string(), df2_path.to_string());
+	let result = experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiYekutieli)?;
 	
-    println!("Tiempo del experimento -> {} segundos", now.elapsed().as_secs());
+    println!("Finished in -> {} seconds", now.elapsed().as_secs());
+    println!("Number of elements -> {}", result.len());
 
     for cor_p_value in result.iter() {
-        println!("{:?}", cor_p_value);
+        println!("{}", cor_p_value);
     }
+
+    Ok(())
 }

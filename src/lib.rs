@@ -9,7 +9,7 @@ pub mod experiment {
         external_sort::{Sortable, ExternalSorter}
     };
     use csv::ReaderBuilder;
-    use pyo3::prelude::*;
+    use pyo3::{create_exception, prelude::*};
     use pyo3::wrap_pyfunction;
     use std::{fmt::Debug, io::{Read, Write}};
     use itertools::iproduct;
@@ -20,6 +20,8 @@ pub mod experiment {
     type TupleExpressionValues = (String, Vec<f64>);
     pub type Batch = Vec<TupleExpressionValues>;
     type LazyMatrix = Box<dyn Iterator<Item = TupleExpressionValues>>;
+
+    create_exception!(ggca, GGCAError, pyo3::exceptions::PyException);
 
     #[pyclass]
     #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
@@ -46,7 +48,7 @@ pub mod experiment {
             write!(
                 f,
                 "Gene -> {} | GEM -> {}\n\tCor -> {}\n\tP-value -> {:+e}\n\tAdjusted p-value -> {:+e}",
-                self.gene, self.gem, &self.correlation, &self.p_value, &self.adjusted_p_value.unwrap()
+                self.gene, self.gem, &self.correlation, &self.p_value, &self.adjusted_p_value.unwrap_or(0.0)
             )
         }
     }
@@ -54,7 +56,6 @@ pub mod experiment {
     impl Eq for CorResult {}
 
     impl Ord for CorResult {
-        // Sorts in descending order
         fn cmp(&self, other: &Self) -> Ordering {
             self.partial_cmp(&other).unwrap()
         }
@@ -82,25 +83,21 @@ pub mod experiment {
             &self,
             m1: LazyMatrix,
             len_m1: u64,
-            m3: LazyMatrix,
-            len_m3: u64,
+            m2: LazyMatrix,
+            len_m2: u64,
             number_of_columns: usize,
             correlation_method: CorrelationMethod,
             correlation_threhold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
-        ) -> VecOfResults {
-            let total_number_of_elements: u64 = len_m1 * len_m3;
+        ) -> PyResult<VecOfResults> {
+            let total_number_of_elements: u64 = len_m1 * len_m2;
 
-            // We need a collected object for right-side of the iproduct macro. In this
-            // case it gets the smaller one to collect
-            let (lazy_m, collected_m) = if len_m1 > len_m3 { (m1, m3) } else { (m3, m1) };
-
-            let collected_m = collected_m.collect::<Vec<TupleExpressionValues>>();
+            let m2_collected = m2.collect::<Vec<TupleExpressionValues>>();
 
             let correlation_struct = get_correlation_method(correlation_method, number_of_columns);
             let correlations_and_p_values =
-                iproduct!(lazy_m, collected_m).map(|(tuple1, tuple3)| {
+                iproduct!(m1, m2_collected).map(|(tuple1, tuple3)| {
                     // Gene and GEM
                     let gene = tuple1.0;
                     let gem = tuple3.0;
@@ -124,7 +121,7 @@ pub mod experiment {
                     // Benjamini-Hochberg and Benajmini-Yekutieli needs sort by p-value to
                     // make the adjustment
                     let mut sorter = ExternalSorter::new(sort_buf_size as usize);
-                    Box::new(sorter.sort(correlations_and_p_values).unwrap())
+                    Box::new(sorter.sort(correlations_and_p_values)?)
                 }
             };
 
@@ -147,7 +144,7 @@ pub mod experiment {
                 cor_and_p_value
             });
 
-            adjusted.collect::<VecOfResults>()
+            Ok(adjusted.collect::<VecOfResults>())
         }
 
         fn get_df(&self, path: &str) -> LazyMatrix {
@@ -186,17 +183,26 @@ pub mod experiment {
             &self,
             df1_path: &str,
             df2_path: &str,
-        ) -> (LazyMatrix, u64, LazyMatrix, u64, usize) {
+        ) -> PyResult<(LazyMatrix, u64, LazyMatrix, u64, usize)> {
             let m1 = self.get_df(df1_path);
             let mut m1_aux = self.get_df(df1_path);
-            let number_of_columns = m1_aux.next().unwrap().1.len();
-            let len_m1 = m1_aux.count() + 1; // Plus discarded element by next()
+            let one_row = m1_aux.next();
 
-            let m3 = self.get_df(df2_path);
-            let m3_aux = self.get_df(df2_path);
-            let len_m3 = m3_aux.count();
-
-            (m1, len_m1 as u64, m3, len_m3 as u64, number_of_columns)
+            match one_row {
+                None => Err(GGCAError::new_err("Error reading first row of mRNA file, is it empty?")),
+                Some(row) => {
+                    // Wrap is safe as None is checked before
+                    let number_of_columns = row.1.len();
+        
+                    let len_m1 = m1_aux.count() + 1; // Plus discarded element by next()
+        
+                    let m2 = self.get_df(df2_path);
+                    let m2_aux = self.get_df(df2_path);
+                    let len_m2 = m2_aux.count();
+        
+                    Ok((m1, len_m1 as u64, m2, len_m2 as u64, number_of_columns))
+                }
+            }
         }
 
         fn compute(
@@ -205,7 +211,7 @@ pub mod experiment {
             correlation_threhold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
-        ) -> VecOfResults;
+        ) -> PyResult<VecOfResults>;
     }
 
     pub struct ExperimentFromFiles {
@@ -220,15 +226,15 @@ pub mod experiment {
             correlation_threhold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
-        ) -> VecOfResults {
-            let (m1, len_m1, m3, len_m3, number_of_columns) =
-                self.get_both_df_and_shape(self.file_1_path.as_str(), self.file_2_path.as_str());
+        ) -> PyResult<VecOfResults> {
+            let (m1, len_m1, m2, len_m2, number_of_columns) =
+                self.get_both_df_and_shape(self.file_1_path.as_str(), self.file_2_path.as_str())?;
 
             self.all_vs_all(
                 m1,
                 len_m1,
-                m3,
-                len_m3,
+                m2,
+                len_m2,
                 number_of_columns,
                 correlation_method,
                 correlation_threhold,
@@ -247,9 +253,9 @@ pub mod experiment {
 
     /// A Python module implemented in Rust.
     #[pymodule]
-    fn ggca(_py: Python, m: &PyModule) -> PyResult<()> {
+    fn ggca(py: Python, m: &PyModule) -> PyResult<()> {
         m.add_function(wrap_pyfunction!(correlate, m)?)?;
-
+        m.add("GGCAError", py.get_type::<GGCAError>())?;
         Ok(())
     }
 
@@ -277,13 +283,12 @@ pub mod experiment {
                 _ => AdjustmentMethod::Bonferroni,
             };
 
-            let result = experiment.compute(
+            experiment.compute(
                 correlation_method,
                 correlation_threhold,
                 sort_buf_size,
                 adjustment_method,
-            );
-            Ok(result)
+            )
         })
     }
 }
