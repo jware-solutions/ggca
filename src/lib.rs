@@ -1,20 +1,21 @@
 pub mod adjustment;
 pub mod correlation;
-mod external_sort;
 
 pub mod experiment {
+    extern crate extsort;
+    use extsort::*;
+    use crate::adjustment::{get_adjustment_method, AdjustmentMethod};
     use crate::correlation::{get_correlation_method, CorrelationMethod};
-    use crate::{
-        adjustment::{get_adjustment_method, AdjustmentMethod},
-        external_sort::{Sortable, ExternalSorter}
-    };
     use csv::ReaderBuilder;
-    use pyo3::{create_exception, prelude::*};
-    use pyo3::wrap_pyfunction;
-    use std::{fmt::Debug, io::{Read, Write}};
     use itertools::iproduct;
+    use pyo3::wrap_pyfunction;
+    use pyo3::{create_exception, prelude::*};
     use serde_derive::{Deserialize, Serialize};
     use std::cmp::Ordering;
+    use std::{
+        fmt::Debug,
+        io::{Read, Write},
+    };
 
     type VecOfResults = Vec<CorResult>;
     type TupleExpressionValues = (String, Vec<f64>);
@@ -96,23 +97,22 @@ pub mod experiment {
             let m2_collected = m2.collect::<Vec<TupleExpressionValues>>();
 
             let correlation_struct = get_correlation_method(correlation_method, number_of_columns);
-            let correlations_and_p_values =
-                iproduct!(m1, m2_collected).map(|(tuple1, tuple3)| {
-                    // Gene and GEM
-                    let gene = tuple1.0;
-                    let gem = tuple3.0;
+            let correlations_and_p_values = iproduct!(m1, m2_collected).map(|(tuple1, tuple3)| {
+                // Gene and GEM
+                let gene = tuple1.0;
+                let gem = tuple3.0;
 
-                    let (correlation, p_value) =
-                        correlation_struct.correlate(tuple1.1.as_slice(), tuple3.1.as_slice());
+                let (correlation, p_value) =
+                    correlation_struct.correlate(tuple1.1.as_slice(), tuple3.1.as_slice());
 
-                    CorResult {
-                        gene,
-                        gem,
-                        correlation,
-                        p_value,
-                        adjusted_p_value: None,
-                    }
-                });
+                CorResult {
+                    gene,
+                    gem,
+                    correlation,
+                    p_value,
+                    adjusted_p_value: None,
+                }
+            });
 
             // Sorting
             let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
@@ -120,7 +120,7 @@ pub mod experiment {
                 _ => {
                     // Benjamini-Hochberg and Benajmini-Yekutieli needs sort by p-value to
                     // make the adjustment
-                    let mut sorter = ExternalSorter::new(sort_buf_size as usize);
+                    let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
                     Box::new(sorter.sort(correlations_and_p_values)?)
                 }
             };
@@ -189,17 +189,19 @@ pub mod experiment {
             let one_row = m1_aux.next();
 
             match one_row {
-                None => Err(GGCAError::new_err("Error reading first row of mRNA file, is it empty?")),
+                None => Err(GGCAError::new_err(
+                    "Error reading first row of mRNA file, is it empty?",
+                )),
                 Some(row) => {
                     // Wrap is safe as None is checked before
                     let number_of_columns = row.1.len();
-        
+
                     let len_m1 = m1_aux.count() + 1; // Plus discarded element by next()
-        
+
                     let m2 = self.get_df(df2_path);
                     let m2_aux = self.get_df(df2_path);
                     let len_m2 = m2_aux.count();
-        
+
                     Ok((m1, len_m1 as u64, m2, len_m2 as u64, number_of_columns))
                 }
             }
