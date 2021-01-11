@@ -149,7 +149,7 @@ pub mod experiment {
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool
-        ) -> PyResult<VecOfResults> {
+        ) -> PyResult<(VecOfResults, u64)> {
             // Right part of iproduct must implement Clone. For more info read:
             // https://users.rust-lang.org/t/iterators-over-csv-files-with-iproduct/51947
             let matrix_2_collected = matrix_2.collect::<CollectedMatrix>();
@@ -162,8 +162,8 @@ pub mod experiment {
             });
 
             // Filtering by equal genes (if needed)
-            // Counts elemento for future p-value adjustment
-            let (filtered, total_number_of_elements): (Box<dyn Iterator<Item = CorResult>>, u64) = if is_all_vs_all {
+            // Counts element for future p-value adjustment
+            let (filtered, number_of_evaluated_combinations): (Box<dyn Iterator<Item = CorResult>>, u64) = if is_all_vs_all {
                 (Box::new(correlations_and_p_values), len_m1 * len_m2)
             } else {
                 let (res, count_aux) = correlations_and_p_values.filter(|cor_result| {
@@ -196,7 +196,7 @@ pub mod experiment {
 
             // Adjustment
             let mut adjustment_struct =
-                get_adjustment_method(adjustment_method, total_number_of_elements as f64);
+                get_adjustment_method(adjustment_method, number_of_evaluated_combinations as f64);
             let adjusted = filtered.map(|(rank, mut cor_and_p_value)| {
                 let p_value = cor_and_p_value.p_value;
                 // Unwrap is safe as None p-values will be filtered before (they are None
@@ -207,7 +207,7 @@ pub mod experiment {
                 cor_and_p_value
             });
 
-            Ok(adjusted.collect::<VecOfResults>())
+            Ok((adjusted.collect::<VecOfResults>(), number_of_evaluated_combinations))
         }
 
         fn get_df(&self, path: &str) -> LazyMatrix {
@@ -277,7 +277,7 @@ pub mod experiment {
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool
-        ) -> PyResult<VecOfResults>;
+        ) -> PyResult<(VecOfResults, u64)>;
     }
 
     pub struct ExperimentFromFiles {
@@ -293,7 +293,7 @@ pub mod experiment {
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool
-        ) -> PyResult<VecOfResults> {
+        ) -> PyResult<(VecOfResults, u64)> {
             let (m1, len_m1, m2, len_m2, number_of_samples) =
                 self.get_both_df_and_shape(self.file_1_path.as_str(), self.file_2_path.as_str())?;
             
@@ -337,7 +337,7 @@ pub mod experiment {
         sort_buf_size: u64,
         adjustment_method: i32,
         all_vs_all: bool
-    ) -> PyResult<VecOfResults> {
+    ) -> PyResult<(VecOfResults, u64)> {
         py.allow_threads(|| {
             let experiment = new_from_files(file_1_path, file_2_path);
             let correlation_method = match correlation_method {

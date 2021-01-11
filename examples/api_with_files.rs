@@ -13,10 +13,10 @@ fn main() -> PyResult<()> {
     let now = Instant::now();
     
     let experiment = new_from_files(df1_path.to_string(), df2_path.to_string());
-	let result = experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiYekutieli)?;
+	let (result, number_of_elements_evaluated) = experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiHochberg, true)?;
 	
     println!("Finished in -> {} seconds", now.elapsed().as_secs());
-    println!("Number of elements -> {}", result.len());
+    println!("Number of elements -> {} of {} combinations evaluated", result.len(), number_of_elements_evaluated);
 
     for cor_p_value in result.iter() {
         println!("{}", cor_p_value);
