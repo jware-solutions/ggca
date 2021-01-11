@@ -4,7 +4,7 @@ pub mod correlation;
 pub mod experiment {
     extern crate extsort;
     use extsort::*;
-    use crate::adjustment::{get_adjustment_method, AdjustmentMethod};
+    use crate::{adjustment::{get_adjustment_method, AdjustmentMethod}, correlation::Correlation};
     use crate::correlation::{get_correlation_method, CorrelationMethod};
     use csv::ReaderBuilder;
     use itertools::iproduct;
@@ -19,8 +19,8 @@ pub mod experiment {
 
     type VecOfResults = Vec<CorResult>;
     type TupleExpressionValues = (String, Vec<f64>);
-    pub type Batch = Vec<TupleExpressionValues>;
     type LazyMatrix = Box<dyn Iterator<Item = TupleExpressionValues>>;
+    type CollectedMatrix = Vec<TupleExpressionValues>;
 
     create_exception!(ggca, GGCAError, pyo3::exceptions::PyException);
 
@@ -32,9 +32,9 @@ pub mod experiment {
         #[pyo3(get, set)]
         gem: String,
         #[pyo3(get, set)]
-        correlation: f64,
+        correlation: Option<f64>,
         #[pyo3(get, set)]
-        p_value: f64,
+        p_value: Option<f64>,
         #[pyo3(get, set)]
         adjusted_p_value: Option<f64>,
     }
@@ -49,7 +49,11 @@ pub mod experiment {
             write!(
                 f,
                 "Gene -> {} | GEM -> {}\n\tCor -> {}\n\tP-value -> {:+e}\n\tAdjusted p-value -> {:+e}",
-                self.gene, self.gem, &self.correlation, &self.p_value, &self.adjusted_p_value.unwrap_or(0.0)
+                self.gene, 
+                self.gem, 
+                &self.correlation.unwrap_or(0.0), 
+                &self.p_value.unwrap_or(0.0), 
+                &self.adjusted_p_value.unwrap_or(0.0)
             )
         }
     }
@@ -79,49 +83,99 @@ pub mod experiment {
         }
     }
 
+    fn get_correlation_result(
+        tuple_1: TupleExpressionValues,
+        tuple_2: TupleExpressionValues,
+        correlation_method_struct: &dyn Correlation
+    ) -> CorResult {
+        // Gene and GEM
+        let gene = tuple_1.0;
+        let gem = tuple_2.0;
+
+        let (correlation, p_value) = correlation_method_struct.correlate(tuple_1.1.as_slice(), tuple_2.1.as_slice());
+
+        CorResult {
+            gene,
+            gem,
+            correlation: Some(correlation),
+            p_value: Some(p_value),
+            adjusted_p_value: None,
+        }
+    }
+
+    /// Generates a cartesian product without checking for equal genes
+    fn cartesian_all_vs_all(
+        tuple_1: TupleExpressionValues,
+        tuple_2: TupleExpressionValues,
+        correlation_method_struct: &dyn Correlation
+    ) -> CorResult {
+        get_correlation_result(tuple_1, tuple_2, correlation_method_struct)
+    }
+
+    /// Generates a cartesian product checking for equal genes saving computation time
+    fn cartesian_equal_genes(
+        tuple_1: TupleExpressionValues,
+        tuple_2: TupleExpressionValues,
+        correlation_method_struct: &dyn Correlation
+    ) -> CorResult {
+        // Gene and GEM
+        let gene = tuple_1.0.clone();
+        let gem = tuple_2.0.clone();
+
+        if gene == gem {
+            get_correlation_result(tuple_1, tuple_2, correlation_method_struct)
+        } else {
+            CorResult {
+                gene,
+                gem,
+                correlation: None,
+                p_value: None,
+                adjusted_p_value: None,
+            }
+        }     
+    }
+
     pub trait Computation {
-        fn all_vs_all(
+        fn run_analysis(
             &self,
-            m1: LazyMatrix,
+            matrix_1: LazyMatrix,
             len_m1: u64,
-            m2: LazyMatrix,
+            matrix_2: LazyMatrix,
             len_m2: u64,
             number_of_samples: usize,
             correlation_method: CorrelationMethod,
             correlation_threshold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
+            is_all_vs_all: bool
         ) -> PyResult<VecOfResults> {
             let total_number_of_elements: u64 = len_m1 * len_m2;
 
-            let m2_collected = m2.collect::<Vec<TupleExpressionValues>>();
+            // Right part of iproduct must implement Clone. For more info read:
+            // https://users.rust-lang.org/t/iterators-over-csv-files-with-iproduct/51947
+            let matrix_2_collected = matrix_2.collect::<CollectedMatrix>();
 
-            let correlation_struct = get_correlation_method(correlation_method, number_of_samples);
-            let correlations_and_p_values = iproduct!(m1, m2_collected).map(|(tuple1, tuple3)| {
-                // Gene and GEM
-                let gene = tuple1.0;
-                let gem = tuple3.0;
-
-                let (correlation, p_value) =
-                    correlation_struct.correlate(tuple1.1.as_slice(), tuple3.1.as_slice());
-
-                CorResult {
-                    gene,
-                    gem,
-                    correlation,
-                    p_value,
-                    adjusted_p_value: None,
-                }
+            // Cartesian product computing correlation and p-value
+            let correlation_method_struct = get_correlation_method(correlation_method, number_of_samples);
+            let correlation_function = if is_all_vs_all { cartesian_all_vs_all } else { cartesian_equal_genes };
+            let correlations_and_p_values = iproduct!(matrix_1, matrix_2_collected).map(|(tuple_1, tuple_2)| {
+                correlation_function(tuple_1, tuple_2, &*correlation_method_struct)
             });
 
-            // Sorting
+            // Filtering by equal genes (if needed)
+            let filtered: Box<dyn Iterator<Item = CorResult>> = match is_all_vs_all {
+                true => Box::new(correlations_and_p_values),
+                _ => Box::new(correlations_and_p_values.filter(|cor_result| { cor_result.gene == cor_result.gem }))
+            };
+
+            // Sorting (for future adjustment)
             let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
-                AdjustmentMethod::Bonferroni => Box::new(correlations_and_p_values),
+                AdjustmentMethod::Bonferroni => Box::new(filtered),
                 _ => {
                     // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value to
                     // make the adjustment
                     let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
-                    Box::new(sorter.sort(correlations_and_p_values)?)
+                    Box::new(sorter.sort(filtered)?)
                 }
             };
 
@@ -130,7 +184,9 @@ pub mod experiment {
 
             // Filtering
             let filtered = ranked.filter(|(_, cor_and_p_value)| {
-                cor_and_p_value.correlation.abs() >= correlation_threshold
+                // Unwrap is safe as None correlation values will be filtered before (they are None
+                // when is_all_vs_all == false)
+                cor_and_p_value.correlation.unwrap().abs() >= correlation_threshold
             });
 
             // Adjustment
@@ -138,7 +194,9 @@ pub mod experiment {
                 get_adjustment_method(adjustment_method, total_number_of_elements as f64);
             let adjusted = filtered.map(|(rank, mut cor_and_p_value)| {
                 let p_value = cor_and_p_value.p_value;
-                let q_value = adjustment_struct.adjust(p_value, rank);
+                // Unwrap is safe as None p-values will be filtered before (they are None
+                // when is_all_vs_all == false)
+                let q_value = adjustment_struct.adjust(p_value.unwrap(), rank);
 
                 cor_and_p_value.adjusted_p_value = Some(q_value);
                 cor_and_p_value
@@ -213,6 +271,7 @@ pub mod experiment {
             correlation_threshold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
+            is_all_vs_all: bool
         ) -> PyResult<VecOfResults>;
     }
 
@@ -228,11 +287,12 @@ pub mod experiment {
             correlation_threshold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
+            is_all_vs_all: bool
         ) -> PyResult<VecOfResults> {
             let (m1, len_m1, m2, len_m2, number_of_samples) =
                 self.get_both_df_and_shape(self.file_1_path.as_str(), self.file_2_path.as_str())?;
-
-            self.all_vs_all(
+            
+            self.run_analysis(
                 m1,
                 len_m1,
                 m2,
@@ -242,6 +302,7 @@ pub mod experiment {
                 correlation_threshold,
                 sort_buf_size,
                 adjustment_method,
+                is_all_vs_all
             )
         }
     }
@@ -270,6 +331,7 @@ pub mod experiment {
         correlation_threshold: f64,
         sort_buf_size: u64,
         adjustment_method: i32,
+        all_vs_all: bool
     ) -> PyResult<VecOfResults> {
         py.allow_threads(|| {
             let experiment = new_from_files(file_1_path, file_2_path);
@@ -290,6 +352,7 @@ pub mod experiment {
                 correlation_threshold,
                 sort_buf_size,
                 adjustment_method,
+                all_vs_all
             )
         })
     }
