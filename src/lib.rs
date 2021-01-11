@@ -8,6 +8,7 @@ pub mod experiment {
     use crate::correlation::{get_correlation_method, CorrelationMethod};
     use csv::ReaderBuilder;
     use itertools::iproduct;
+    use itertools::Itertools;
     use pyo3::wrap_pyfunction;
     use pyo3::{create_exception, prelude::*};
     use serde_derive::{Deserialize, Serialize};
@@ -149,8 +150,6 @@ pub mod experiment {
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool
         ) -> PyResult<VecOfResults> {
-            let total_number_of_elements: u64 = len_m1 * len_m2;
-
             // Right part of iproduct must implement Clone. For more info read:
             // https://users.rust-lang.org/t/iterators-over-csv-files-with-iproduct/51947
             let matrix_2_collected = matrix_2.collect::<CollectedMatrix>();
@@ -163,11 +162,16 @@ pub mod experiment {
             });
 
             // Filtering by equal genes (if needed)
-            let filtered: Box<dyn Iterator<Item = CorResult>> = match is_all_vs_all {
-                true => Box::new(correlations_and_p_values),
-                _ => Box::new(correlations_and_p_values.filter(|cor_result| { cor_result.gene == cor_result.gem }))
+            // Counts elemento for future p-value adjustment
+            let (filtered, total_number_of_elements): (Box<dyn Iterator<Item = CorResult>>, u64) = if is_all_vs_all {
+                (Box::new(correlations_and_p_values), len_m1 * len_m2)
+            } else {
+                let (res, count_aux) = correlations_and_p_values.filter(|cor_result| {
+                    cor_result.gene == cor_result.gem
+                }).tee();
+                (Box::new(res), count_aux.count() as u64)
             };
-
+            
             // Sorting (for future adjustment)
             let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
                 AdjustmentMethod::Bonferroni => Box::new(filtered),
@@ -182,7 +186,8 @@ pub mod experiment {
             // Ranking
             let ranked = sorted.enumerate();
 
-            // Filtering
+            // Filtering. Improves performance adjusting only the final combinations, note that
+            // ranking is preserved
             let filtered = ranked.filter(|(_, cor_and_p_value)| {
                 // Unwrap is safe as None correlation values will be filtered before (they are None
                 // when is_all_vs_all == false)
