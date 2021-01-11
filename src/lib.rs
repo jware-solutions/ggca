@@ -86,9 +86,9 @@ pub mod experiment {
             len_m1: u64,
             m2: LazyMatrix,
             len_m2: u64,
-            number_of_columns: usize,
+            number_of_samples: usize,
             correlation_method: CorrelationMethod,
-            correlation_threhold: f64,
+            correlation_threshold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> PyResult<VecOfResults> {
@@ -96,7 +96,7 @@ pub mod experiment {
 
             let m2_collected = m2.collect::<Vec<TupleExpressionValues>>();
 
-            let correlation_struct = get_correlation_method(correlation_method, number_of_columns);
+            let correlation_struct = get_correlation_method(correlation_method, number_of_samples);
             let correlations_and_p_values = iproduct!(m1, m2_collected).map(|(tuple1, tuple3)| {
                 // Gene and GEM
                 let gene = tuple1.0;
@@ -118,7 +118,7 @@ pub mod experiment {
             let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
                 AdjustmentMethod::Bonferroni => Box::new(correlations_and_p_values),
                 _ => {
-                    // Benjamini-Hochberg and Benajmini-Yekutieli needs sort by p-value to
+                    // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value to
                     // make the adjustment
                     let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
                     Box::new(sorter.sort(correlations_and_p_values)?)
@@ -130,7 +130,7 @@ pub mod experiment {
 
             // Filtering
             let filtered = ranked.filter(|(_, cor_and_p_value)| {
-                cor_and_p_value.correlation.abs() >= correlation_threhold
+                cor_and_p_value.correlation.abs() >= correlation_threshold
             });
 
             // Adjustment
@@ -194,7 +194,7 @@ pub mod experiment {
                 )),
                 Some(row) => {
                     // Wrap is safe as None is checked before
-                    let number_of_columns = row.1.len();
+                    let number_of_samples = row.1.len();
 
                     let len_m1 = m1_aux.count() + 1; // Plus discarded element by next()
 
@@ -202,7 +202,7 @@ pub mod experiment {
                     let m2_aux = self.get_df(df2_path);
                     let len_m2 = m2_aux.count();
 
-                    Ok((m1, len_m1 as u64, m2, len_m2 as u64, number_of_columns))
+                    Ok((m1, len_m1 as u64, m2, len_m2 as u64, number_of_samples))
                 }
             }
         }
@@ -210,7 +210,7 @@ pub mod experiment {
         fn compute(
             &self,
             correlation_method: CorrelationMethod,
-            correlation_threhold: f64,
+            correlation_threshold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> PyResult<VecOfResults>;
@@ -225,11 +225,11 @@ pub mod experiment {
         fn compute(
             &self,
             correlation_method: CorrelationMethod,
-            correlation_threhold: f64,
+            correlation_threshold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
         ) -> PyResult<VecOfResults> {
-            let (m1, len_m1, m2, len_m2, number_of_columns) =
+            let (m1, len_m1, m2, len_m2, number_of_samples) =
                 self.get_both_df_and_shape(self.file_1_path.as_str(), self.file_2_path.as_str())?;
 
             self.all_vs_all(
@@ -237,9 +237,9 @@ pub mod experiment {
                 len_m1,
                 m2,
                 len_m2,
-                number_of_columns,
+                number_of_samples,
                 correlation_method,
-                correlation_threhold,
+                correlation_threshold,
                 sort_buf_size,
                 adjustment_method,
             )
@@ -267,7 +267,7 @@ pub mod experiment {
         file_1_path: String,
         file_2_path: String,
         correlation_method: i32,
-        correlation_threhold: f64,
+        correlation_threshold: f64,
         sort_buf_size: u64,
         adjustment_method: i32,
     ) -> PyResult<VecOfResults> {
@@ -287,7 +287,7 @@ pub mod experiment {
 
             experiment.compute(
                 correlation_method,
-                correlation_threhold,
+                correlation_threshold,
                 sort_buf_size,
                 adjustment_method,
             )

@@ -1,10 +1,6 @@
 use std::cmp::Ordering;
 
-use rgsl::{
-    randist::beta::beta_P,
-    randist::t_distribution::tdist_Q,
-    statistics::{correlation, spearman},
-};
+use rgsl::{randist::beta::beta_P, randist::{gaussian::gaussian_P, t_distribution::tdist_Q}, statistics::{correlation, spearman}};
 
 pub trait Correlation {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64);
@@ -27,7 +23,7 @@ impl Correlation for Pearson {
         let r = correlation(x, 1, y, 1, self.n);
 
         // P-value
-        // Same behaviour as Python Scipy's pearsonr method
+        // Same behavior as Python Scipy's pearsonr method
         let x = 0.5 * (1.0 - r.abs());
         let p_value = 2.0 * beta_P(x, self.ab, self.ab);
 
@@ -56,7 +52,7 @@ impl Correlation for Spearman {
         let rs = spearman(x, 1, y, 1, self.n, workspace);
 
         // P-value
-        // Same behaviour as Python Scipy's spearmanr method
+        // Same behavior as Python Scipy's spearmanr method
         // let t = r * np.sqrt((dof/((rs+1.0)*(1.0-rs))).clip(0))
         let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
         let ccdf = tdist_Q(t.abs(), self.degrees_of_freedom);
@@ -78,14 +74,22 @@ impl Kendall {
 
 impl Correlation for Kendall {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
-        let r = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
+        println!("{:?}", x);
+        println!("{:?}", y);
+        let tau = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
             a.partial_cmp(&b).unwrap_or(Ordering::Greater)
         }).unwrap();
 
         // P-value
-        let p_value = 1.0 - kendalls::significance(r, self.n);
+        // FIXME: significance value seems to be wrong. Issue: https://github.com/zolkko/kendalls/issues/2
+        // let significance = kendalls::significance(tau, x.len()); // If this line is correct, use self.n instead of x.len()
+        let significance: f64 = -2.09764910069;
+        let cdf = gaussian_P(-significance.abs(), 1.0);
+        let p_value = 2.0 * cdf;
 
-        (r, p_value)
+        println!("Tau -> {} | Z -> {} P-value -> {} | Diff -> {}", tau, significance, p_value, (0.0389842391014099 - p_value).abs());
+
+        (tau, p_value)
     }
 }
 
@@ -98,11 +102,11 @@ pub enum CorrelationMethod {
 
 pub fn get_correlation_method(
     correlation_method: CorrelationMethod,
-    n: usize,
+    number_of_samples: usize,
 ) -> Box<dyn Correlation> {
     match correlation_method {
-        CorrelationMethod::Pearson => Box::new(Pearson::new(n)),
-        CorrelationMethod::Spearman => Box::new(Spearman::new(n)),
-        CorrelationMethod::Kendall => Box::new(Kendall::new(n)),
+        CorrelationMethod::Pearson => Box::new(Pearson::new(number_of_samples)),
+        CorrelationMethod::Spearman => Box::new(Spearman::new(number_of_samples)),
+        CorrelationMethod::Kendall => Box::new(Kendall::new(number_of_samples)),
     }
 }
