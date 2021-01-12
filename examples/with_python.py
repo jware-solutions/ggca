@@ -1,0 +1,43 @@
+# ggca.so must be in the same folder
+import ggca
+from enum import Enum
+
+"""Possible Correlation methods"""
+SPEARMAN = 1
+KENDALL = 2
+PEARSON = 3
+
+"""Possible P-values adjustment methods"""
+BENJAMINI_HOCHBERG = 1
+BENJAMINI_YEKUTIELI = 2
+BONFERRONI = 3
+
+
+def main():
+	mrna_file_path = "mrna.csv"
+	gem_file_path = "gem.csv"
+
+	try:
+		(result_combinations, evaluated_combinations) = ggca.correlate(
+			mrna_file_path,
+			gem_file_path,
+			correlation_method=PEARSON,
+			correlation_threshold=0.5,
+			sort_buf_size=2_000_000,
+			adjustment_method=BENJAMINI_HOCHBERG,
+			all_vs_all=True,
+			gem_contains_cpg=False
+		)
+
+		print(f'Number of resulting combinations: {len(result_combinations)} of {evaluated_combinations} evaluated combinations')
+		for combination in result_combinations:
+			print(combination.gene, combination.gem, combination.correlation, combination.p_value, combination.adjusted_p_value)
+	except ggca.GGCAError as ex:
+		print('Raised GGCAError:', ex)
+	except ggca.GGCADiffSamplesLength as ex:
+		print('Raised GGCADiffSamplesLength:', ex)
+	except ggca.GGCADiffSamples as ex:
+		print('Raised GGCADiffSamples:', ex)
+
+if __name__ == '__main__':
+	main()
