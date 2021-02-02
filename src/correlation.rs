@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
-
-use rgsl::{randist::beta::beta_P, randist::{gaussian::gaussian_P, t_distribution::tdist_Q}, statistics::{correlation, spearman}};
+use pyo3::prelude::*;
+use rgsl::{randist::beta::beta_P, randist::t_distribution::tdist_Q, statistics::{correlation, spearman}};
 
 pub trait Correlation {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64);
@@ -74,22 +74,27 @@ impl Kendall {
 
 impl Correlation for Kendall {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
-        println!("{:?}", x);
-        println!("{:?}", y);
-        let tau = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
-            a.partial_cmp(&b).unwrap_or(Ordering::Greater)
-        }).unwrap();
+        // Hotfix until https://github.com/zolkko/kendalls/issues/2 is solved
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        let scipy = PyModule::import(py, "scipy.stats").expect("Scipy was not found");
+        scipy.call1("kendalltau", (x.to_vec(), y.to_vec(),)).unwrap().extract().unwrap()
+
+        // let tau = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
+        //     a.partial_cmp(&b).unwrap_or(Ordering::Greater)
+        // }).unwrap();
 
         // P-value
+        
         // FIXME: significance value seems to be wrong. Issue: https://github.com/zolkko/kendalls/issues/2
         // let significance = kendalls::significance(tau, x.len()); // If this line is correct, use self.n instead of x.len()
-        let significance: f64 = -2.09764910069;
-        let cdf = gaussian_P(-significance.abs(), 1.0);
-        let p_value = 2.0 * cdf;
+        // let significance: f64 = -2.09764910069;
+        // let cdf = gaussian_P(-significance.abs(), 1.0);
+        // let p_value = 2.0 * cdf;
 
-        println!("Tau -> {} | Z -> {} P-value -> {} | Diff -> {}", tau, significance, p_value, (0.0389842391014099 - p_value).abs());
+        // println!("Tau -> {} | Z -> {} P-value -> {}", tau, significance, p_value);
 
-        (tau, p_value)
+        // (tau, p_value)
     }
 }
 

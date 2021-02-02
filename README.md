@@ -4,7 +4,13 @@
 ## Requirements
 
 1. [GSL][gsl] >= 2.6
-
+1. If Kendall is going to be used it's needed to make some extra stuff until [Kendall crate issue][kendalls-issue] is fixed:
+	- Install [Scipy][scipy] in your system. Or...
+	- Use a virtual environment:
+		1. Create a new Python virtualenv: `python3 -m venv venv`
+		1. Activate virtualenv: `source venv/bin/activate`
+		1. Install Scipy: `pip install scipy`
+		1. Use this library with the virtualenv activated
 
 ## Usage
 
@@ -88,8 +94,8 @@ We provide a Docker image to execute all the commands listed below:
 
 - Build for rust: cargo build [--release]
 - Build for Python (uses Maturin):
-	1. Build wheels: `docker run --rm -v $(pwd):/io ggca-build maturin build --skip-auditwheel --manylinux=2014`
-	1. Repair wheels to include some missing `.so` files: `docker run --rm -v $(pwd):/io ggca-build ./repair-wheels.sh`
+	1. Build wheels: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build maturin build --release --skip-auditwheel --manylinux=2014`
+	1. Repair wheels to include some missing `.so` files: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build ./repair-wheels.sh`
 - Only for development:
 	- To run the examples you must run with this command due to [an issue][pyo3-issue] with Pyo3: `cargo run [--release] --no-default-features --example <example>`
 	- In Python you can test with Maturin:
@@ -102,3 +108,4 @@ We provide a Docker image to execute all the commands listed below:
 [gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
 [kendalls-issue]: https://github.com/zolkko/kendalls/issues/2
+[scipy]: https://www.scipy.org/
