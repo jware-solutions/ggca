@@ -1,25 +1,24 @@
-pub mod types;
 pub mod adjustment;
 pub mod correlation;
 pub mod dataset;
+pub mod types;
 
-pub mod experiment {
+pub mod analysis {
     extern crate extsort;
     use crate::dataset::{Dataset, GGCAError};
-    use crate::types::{VecOfResults, TupleExpressionValues, LazyMatrixInner, CollectedMatrix};
+    use crate::types::{CollectedMatrix, TupleExpressionValues, VecOfResults};
     use crate::{
         adjustment::{get_adjustment_method, AdjustmentMethod},
-        correlation::{CorResult, CorrelationMethod, get_correlation_method, Correlation},
+        correlation::{get_correlation_method, CorResult, Correlation, CorrelationMethod},
     };
     use extsort::ExternalSorter;
-    use itertools::iproduct;
-    use itertools::Itertools;
+    use itertools::Itertools; // Do not remove, it's used for tee()
     use pyo3::wrap_pyfunction;
     use pyo3::{create_exception, prelude::*};
+    use std::fs;
 
     create_exception!(ggca, GGCADiffSamplesLength, pyo3::exceptions::PyException);
     create_exception!(ggca, GGCADiffSamples, pyo3::exceptions::PyException);
-
 
     fn get_correlation_result(
         tuple_1: TupleExpressionValues,
@@ -78,7 +77,38 @@ pub mod experiment {
         }
     }
 
-    pub trait Computation {
+    pub struct Analysis {
+        file_1_path: String,
+        file_2_path: String,
+        gem_contains_cpg: bool,
+    }
+
+    impl Analysis {
+        pub fn new_from_files(
+            file_1_path: String,
+            file_2_path: String,
+            gem_contains_cpg: bool,
+        ) -> Analysis {
+            Analysis {
+                file_1_path,
+                file_2_path,
+                gem_contains_cpg,
+            }
+        }
+
+        /// Generic cartesian product for Iterator and collected LazyMatrix
+        /// See [this question](https://users.rust-lang.org/t/use-iterator-or-collected-vec/55324/2)
+        fn cartesian_product<X: Clone, Y, J: IntoIterator<Item = Y>>(
+            &self,
+            i: impl Iterator<Item = X>,
+            j: J,
+        ) -> impl Iterator<Item = (X, Y)>
+        where
+            J::IntoIter: Clone,
+        {
+            i.cartesian_product(j.into_iter())
+        }
+
         fn run_analysis(
             &self,
             dataset_1: Dataset,
@@ -91,6 +121,7 @@ pub mod experiment {
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool,
+            collect_right_part: bool,
         ) -> PyResult<(VecOfResults, u64)> {
             // Cartesian product computing correlation and p-value
             println!("Seleccionando metodo");
@@ -102,16 +133,23 @@ pub mod experiment {
                 cartesian_equal_genes
             };
 
-            println!("Aplicando cartesiano");
             // Right part of iproduct must implement Clone. For more info read:
             // https://users.rust-lang.org/t/iterators-over-csv-files-with-iproduct/51947
-            // let matrix_2_collected = dataset_2.lazy_matrix.collect::<CollectedMatrix>();
-            let correlations_and_p_values =
-                // iproduct!(dataset_1.lazy_matrix, matrix_2_collected).map(|(tuple_1, tuple_2)| {
-                iproduct!(dataset_1.lazy_matrix, dataset_2.lazy_matrix).map(|(tuple_1, tuple_2)| {
-                    // println!("Ejecutando iproduct");
-                    correlation_function(tuple_1, tuple_2, &*correlation_method_struct)
-                });
+            println!("Aplicando cartesiano");
+            let cross_product: Box<
+                dyn Iterator<Item = (TupleExpressionValues, TupleExpressionValues)>,
+            > = if collect_right_part {
+                Box::new(self.cartesian_product(
+                    dataset_1.lazy_matrix,
+                    dataset_2.lazy_matrix.collect::<CollectedMatrix>(),
+                ))
+            } else {
+                Box::new(self.cartesian_product(dataset_1.lazy_matrix, dataset_2.lazy_matrix))
+            };
+
+            let correlations_and_p_values = cross_product.map(|(tuple_1, tuple_2)| {
+                correlation_function(tuple_1, tuple_2, &*correlation_method_struct)
+            });
 
             // Filtering by equal genes (if needed)
             // Counts element for future p-value adjustment
@@ -130,12 +168,6 @@ pub mod experiment {
             };
 
             // println!("Numero de elementos -> {}",filtered.count());
-
-            // return Ok((
-            //     // adjusted.collect::<VecOfResults>(),
-            //     Vec::new(), // TODO: remove
-            //     number_of_evaluated_combinations,
-            // ));
 
             // Sorting (for future adjustment). Note: consumes iterator
             let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
@@ -184,7 +216,7 @@ pub mod experiment {
         }
 
         /// Gets DataFrame and its shape (to compute, for example, the number of evaluated combinations)
-        fn df_and_shape(
+        fn datasets_and_shapes(
             &self,
             df1_path: &str,
             df2_path: &str,
@@ -204,7 +236,6 @@ pub mod experiment {
                     let number_of_samples = row.2.len();
 
                     let len_m1 = d1_lazy_matrix_aux.count() + 1; // Plus discarded element by next()
-                    
 
                     let matrix_2 = Dataset::new(df2_path, gem_contains_cpg)?;
                     let m2_headers = matrix_2.headers.clone();
@@ -235,7 +266,7 @@ pub mod experiment {
                         // Needs to remove index column as these are not samples and could have different names
                         dataset_1_headers.remove(0);
                         m2_headers_to_compare.remove(0);
-                        
+
                         println!("Compara los samples");
                         if dataset_1_headers != m2_headers_to_compare {
                             println!("Hubo un problema");
@@ -245,45 +276,48 @@ pub mod experiment {
                         } else {
                             println!("Hace un count de m2_aux.1");
                             let len_m2 = m2_aux.lazy_matrix.count();
-                            
+
                             println!("Sale de df_and_shape");
-                            Ok((dataset_1, len_m1 as u64, matrix_2, len_m2 as u64, number_of_samples))
+                            Ok((
+                                dataset_1,
+                                len_m1 as u64,
+                                matrix_2,
+                                len_m2 as u64,
+                                number_of_samples,
+                            ))
                         }
                     }
                 }
             }
         }
 
-        fn compute(
+        pub fn compute(
             &self,
             correlation_method: CorrelationMethod,
             correlation_threshold: f64,
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool,
-        ) -> PyResult<(VecOfResults, u64)>;
-    }
-
-    pub struct ExperimentFromFiles {
-        file_1_path: String,
-        file_2_path: String,
-        gem_contains_cpg: bool,
-    }
-
-    impl Computation for ExperimentFromFiles {
-        fn compute(
-            &self,
-            correlation_method: CorrelationMethod,
-            correlation_threshold: f64,
-            sort_buf_size: u64,
-            adjustment_method: AdjustmentMethod,
-            is_all_vs_all: bool,
+            collect_right_part: Option<bool>,
         ) -> PyResult<(VecOfResults, u64)> {
-            let (m1, len_m1, m2, len_m2, number_of_samples) = self.df_and_shape(
+            let (m1, len_m1, m2, len_m2, number_of_samples) = self.datasets_and_shapes(
                 self.file_1_path.as_str(),
                 self.file_2_path.as_str(),
                 self.gem_contains_cpg,
             )?;
+
+            let should_collect_right_part = match collect_right_part {
+                Some(collect_right_part_value) => collect_right_part_value,
+                None => {
+                    // If None, it's defined automatically from the size of the dataset:
+                    // It'll be collected if the GEM dataset size is less than 100 MB
+                    let metadata = fs::metadata(self.file_2_path.as_str())?;
+                    let size_in_mb = metadata.len() / 1_048_576;
+                    size_in_mb <= 100
+                }
+            };
+
+            println!("should_collect_right_part -> {}", should_collect_right_part);
 
             println!("Comienza el analysis!");
             self.run_analysis(
@@ -297,19 +331,8 @@ pub mod experiment {
                 sort_buf_size,
                 adjustment_method,
                 is_all_vs_all,
+                should_collect_right_part,
             )
-        }
-    }
-
-    pub fn new_from_files(
-        file_1_path: String,
-        file_2_path: String,
-        gem_contains_cpg: bool,
-    ) -> ExperimentFromFiles {
-        ExperimentFromFiles {
-            file_1_path,
-            file_2_path,
-            gem_contains_cpg,
         }
     }
 
@@ -327,7 +350,7 @@ pub mod experiment {
     }
 
     #[pyfunction]
-    pub fn correlate(
+    fn correlate(
         py: Python,
         file_1_path: String,
         file_2_path: String,
@@ -337,9 +360,10 @@ pub mod experiment {
         adjustment_method: i32,
         all_vs_all: bool,
         gem_contains_cpg: bool,
+        collect_right_part: Option<bool>,
     ) -> PyResult<(VecOfResults, u64)> {
         py.allow_threads(|| {
-            let experiment = new_from_files(file_1_path, file_2_path, gem_contains_cpg);
+            let experiment = Analysis::new_from_files(file_1_path, file_2_path, gem_contains_cpg);
             let correlation_method = match correlation_method {
                 1 => CorrelationMethod::Spearman,
                 2 => CorrelationMethod::Kendall,
@@ -358,6 +382,7 @@ pub mod experiment {
                 sort_buf_size,
                 adjustment_method,
                 all_vs_all,
+                collect_right_part,
             )
         })
     }
