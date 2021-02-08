@@ -1,6 +1,82 @@
 use std::cmp::Ordering;
 use pyo3::prelude::*;
 use rgsl::{randist::beta::beta_P, randist::t_distribution::tdist_Q, statistics::{correlation, spearman}};
+use serde_derive::{Deserialize, Serialize};
+use std::{
+    fmt::Debug,
+    io::{Read, Write},
+};
+use extsort::Sortable;
+
+
+#[pyclass]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
+pub struct CorResult {
+    #[pyo3(get, set)]
+    pub gene: String,
+    #[pyo3(get, set)]
+    pub gem: String,
+    #[pyo3(get, set)]
+    pub cpg_site_id: Option<String>,
+    #[pyo3(get, set)]
+    pub correlation: Option<f64>,
+    #[pyo3(get, set)]
+    pub p_value: Option<f64>,
+    #[pyo3(get, set)]
+    pub adjusted_p_value: Option<f64>,
+}
+
+impl std::fmt::Display for CorResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        let cpg_site_id = match &self.cpg_site_id {
+            Some(cpg) => cpg.clone(),
+            None => String::from("-"),
+        };
+
+        write!(
+            f,
+            "Gene -> {} | GEM -> {} | CpG Site ID -> {}
+            \tCor -> {}
+            \tP-value -> {:+e}
+            \tAdjusted p-value -> {:+e}",
+            self.gene,
+            self.gem,
+            cpg_site_id,
+            self.correlation.unwrap_or(0.0),
+            self.p_value.unwrap_or(0.0),
+            self.adjusted_p_value.unwrap_or(0.0)
+        )
+    }
+}
+
+impl Eq for CorResult {}
+
+impl Ord for CorResult {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(&other).unwrap()
+    }
+}
+
+impl PartialOrd for CorResult {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.p_value.partial_cmp(&other.p_value)
+    }
+}
+
+impl Sortable for CorResult {
+    fn encode<W: Write>(&self, writer: &mut W) {
+        let serialized = bincode::serialize(self).unwrap();
+        writer.write_all(&serialized[..]).unwrap();
+    }
+
+    fn decode<R: Read>(reader: &mut R) -> Option<Self> {
+        bincode::deserialize_from(reader).ok()
+    }
+}
 
 pub trait Correlation {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64);
