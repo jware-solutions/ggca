@@ -41,7 +41,9 @@ BONFERRONI = 3
 	sort_buf_size=2_000_000,
 	adjustment_method=BENJAMINI_HOCHBERG,
 	all_vs_all=True,
-	gem_contains_cpg=True
+	gem_contains_cpg=False,
+	collect_gem_dataset=None,
+	keep_top_n=2  # Keeps only top 2 elements
 )
 
 print(f'Number of resulting combinations: {len(result_combinations)} of {evaluated_combinations} evaluated combinations')
@@ -67,8 +69,22 @@ for combination in result_combinations:
 let df1_path = "mrna.csv";
 let df2_path = "mirna.csv";
 
+// Some parameters
+let gem_contains_cpg = false;
+let is_all_vs_all = true;
+let keep_top_n = Some(10); // Keeps the top 10 of correlation (sorting by abs values)
+let collect_gem_dataset = None; // Better performance. Keep small GEM files in memory
+
 let experiment = new_from_files(df1_path.to_string(), df2_path.to_string(), false);
-let (result, number_of_elements_evaluated) = experiment.compute(CorrelationMethod::Pearson, 0.7, 2_000_000, AdjustmentMethod::BenjaminiHochberg, true)?;
+let (result, number_of_elements_evaluated) = analysis.compute(
+	CorrelationMethod::Pearson,
+	0.7,
+	2_000_000,
+	AdjustmentMethod::BenjaminiHochberg,
+	is_all_vs_all,
+	collect_gem_dataset,
+	keep_top_n,
+)?;
 
 println!("Number of elements -> {} of {} combinations evaluated", result.len(), number_of_elements_evaluated);
 

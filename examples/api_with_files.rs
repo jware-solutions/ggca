@@ -13,7 +13,7 @@ fn main() -> PyResult<()> {
     let gem_contains_cpg = false;
     let is_all_vs_all = true;
     let keep_top_n = Some(10); // Keeps the top 10 of correlation (sorting by abs values)
-    let collect_gem_dataset = None;
+    let collect_gem_dataset = None; // Better performance. Keep small GEM files in memory
 
     let analysis =
         Analysis::new_from_files(df1_path.to_string(), df2_path.to_string(), gem_contains_cpg);
