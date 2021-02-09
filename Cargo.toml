@@ -1,31 +1,31 @@
 [package]
-name = "ggca"
-version = "0.1.5"
 authors = ["JWare <jware.organization@gmail.com>"]
 edition = "2018"
+name = "ggca"
+version = "0.1.5"
 
 [lib]
-name = "ggca"
 crate-type = ["cdylib", "rlib"]
+name = "ggca"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-itertools = "0.9.0"
 GSL = "2.0.1"
+bincode = "1.3.1"
 csv = "1.1"
+extsort = "0.4.0"
+fast-float = "0.2"
+itertools = "0.9.0"
 kendalls = "0.1.5"
 pyo3 = "0.12.4"
-serde = { version = "1.0.14", default-features = false }
-serde_derive = { version = "1.0.14", default-features = false }
-bincode = "1.3.1"
-extsort = "0.4.0"
-
+serde = {version = "1.0.14", default-features = false}
+serde_derive = {version = "1.0.14", default-features = false}
 
 [features]
 # This prevent errors with get/set macro
 # Read this https://github.com/PyO3/pyo3/issues/1084
 # Solved using this: https://pyo3.rs/master/faq.html#i-cant-run-cargo-test-im-having-linker-issues-like-symbol-not-found-or-undefined-reference-to-_pyexc_systemerror
 # It will be fixed once https://github.com/PyO3/pyo3/pull/1123 is merged
-extension-module = ["pyo3/extension-module"]
 default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]

@@ -6,10 +6,12 @@ use std::fs::File;
 
 create_exception!(ggca, GGCAError, pyo3::exceptions::PyException);
 
+/// Creates CSV Reader from a path with the Tab delimiter
+/// # Args
+/// * `path`: Path of file to create the Reader
 fn reader_from_path(path: &str) -> PyResult<Reader<File>> {
-    let buffer_capacity = 16_384; // 16 KB
     let reader_builder = ReaderBuilder::new()
-        .buffer_capacity(buffer_capacity)
+        .buffer_capacity(16_384) // 16 KB
         .delimiter(b'\t')
         .from_path(path);
 
@@ -22,22 +24,6 @@ fn reader_from_path(path: &str) -> PyResult<Reader<File>> {
     }
 }
 
-fn headers_from_reader(reader: &mut Reader<File>) -> Vec<String> {
-    let headers: csv::StringRecord = reader.headers().unwrap().to_owned();
-    headers
-        .into_iter()
-        .map(|header| header.to_string())
-        .collect::<Vec<String>>()
-
-    // let string_record_wrapper = StringRecordsWrapper {
-    //     filename: path.to_string(),
-    //     inner: reader.into_records()
-    // };
-    // let string_record_iterator = string_record_wrapper.enumerate();
-
-    // (headers, reader.into_records().enumerate())
-}
-
 pub struct LazyMatrix {
     path: String,
     gem_contains_cpg: bool,
@@ -45,12 +31,12 @@ pub struct LazyMatrix {
 }
 
 impl LazyMatrix {
-    pub fn new(path: &str, gem_contains_cpg: bool) -> PyResult<Self> {
-        let lazy_matrix = if gem_contains_cpg {
-            Self::get_df_with_cpg(path)?
-        } else {
-            Self::get_df(path)?
-        };
+    /// Creates an instance of LazyMatrix from a path
+    /// # Args
+    /// * `path`: Path of file to create the LazyMatrix
+    /// * `gem_contains_cpg`: True if second column must be considered as a CpG Site ID. False for normal datasets
+    fn new(path: &str, gem_contains_cpg: bool) -> PyResult<Self> {
+        let lazy_matrix = Self::lazy_matrix(path, gem_contains_cpg)?;
 
         Ok(LazyMatrix {
             path: path.to_string(),
@@ -59,68 +45,49 @@ impl LazyMatrix {
         })
     }
 
-    fn get_df(path: &str) -> PyResult<LazyMatrixInner> {
+    /// Parses the datasets cells (strings) to float using efficient implementation
+    /// from [fast-float](https://github.com/aldanor/fast-float-rust) crate.
+    /// Returns an Map iterator with the values of Gene/GEM, CpG Site ID (optional) and a vec with expression values
+    /// In case of error, panics informing the line and column with invalid format.
+    /// # Args
+    /// * `path`: Path of the dataset
+    /// * `gem_contains_cpg`: True if second column must be considered as a CpG Site ID. False for normal datasets
+    fn lazy_matrix(path: &str, with_cpg_site_id: bool) -> PyResult<LazyMatrixInner> {
         // Build the CSV reader and iterate over each record.
-        // println!("Entra en get_df");
         let reader = reader_from_path(path)?;
-        // let (headers, reader) = Self::headers_from_reader(path)?;
-        let dataframe_parsed = reader
-            .into_records()
-            .enumerate()
-            .map(|(row_idx, record_result)| {
-                let record = record_result.unwrap();
-                let mut it = record.into_iter();
-                let gene_or_gem = it.next().unwrap().to_string();
-                let lazy_matrix = it
-                    .enumerate()
-                    .map(|(column_idx, cell)| {
-                        // It's added 1 as we're not considering headers row or index column
-                        cell.parse::<f64>().expect(&format!(
-                            "Row {} column {} (0 indexed) has an invalid value -> {}.
+        let lazy_matrix = reader.into_records().map(move |record_result| {
+            // Gets current record and its line
+            let record = record_result.unwrap();
+            let line = record.position().unwrap().line();
+            let mut it = record.into_iter();
+
+            // Gets Gene/GEM and, if needed, CpG Site ID
+            let gene_or_gem = it.next().unwrap().to_string();
+            let cpg_site_id = if with_cpg_site_id {
+                Some(it.next().unwrap().to_string())
+            } else {
+                None
+            };
+
+            // Casts all cells to float
+            let values = it
+                .enumerate()
+                .map(|(column_idx, cell)| {
+                    // + 1 or +2 as it doesn't take index (and CpG Site ID) column/s into account
+                    fast_float::parse(cell).expect(&format!(
+                        "Line {} column {} has an invalid value -> '{}'.
                                 \nFirst column must be the Gene/GEM and the rest the samples",
-                            row_idx + 1,
-                            column_idx + 1,
-                            cell
-                        ))
-                    })
-                    .collect::<Vec<f64>>();
+                        line,
+                        column_idx + (if with_cpg_site_id { 2 } else { 1 }),
+                        cell
+                    ))
+                })
+                .collect::<Vec<f64>>();
 
-                (gene_or_gem, None, lazy_matrix)
-            });
+            (gene_or_gem, cpg_site_id, values)
+        });
 
-        // println!("Sale de get_df");
-        Ok(Box::new(dataframe_parsed))
-    }
-
-    fn get_df_with_cpg(path: &str) -> PyResult<LazyMatrixInner> {
-        // Build the CSV reader and iterate over each record.
-        // println!("Entra en get_df_with_cpg");
-        let reader = reader_from_path(path)?;
-        // let (headers, reader) = Self::headers_from_reader(path)?;
-        let dataframe_parsed = reader.into_records().enumerate()
-                .map(|(row_idx, record_result)| {
-                    let record = record_result.unwrap();
-                    let mut it = record.into_iter();
-                    let gene_or_gem = it.next().unwrap().to_string();
-                    let cpg_site_id = it.next().unwrap().to_string();
-
-                    let values = it
-                        .enumerate()
-                        .map(|(column_idx, cell)| {
-                            cell.parse::<f64>().expect(&format!(
-                                "Row {} column {} (0 indexed) has an invalid value -> {}
-                                \nFirst column must be the Gene, the second the CpG Site ID and the rest the samples",
-                                row_idx + 1, // + 1 for the header row
-                                column_idx + 2, // +2 for Gene and CpG columns
-                                cell
-                            ))
-                        })
-                        .collect::<Vec<f64>>();
-
-                    (gene_or_gem, Some(cpg_site_id), values)
-                });
-        // println!("Sale de get_df_with_cpg");
-        Ok(Box::new(dataframe_parsed))
+        Ok(Box::new(lazy_matrix))
     }
 }
 
@@ -134,10 +101,6 @@ impl Iterator for LazyMatrix {
 impl Clone for LazyMatrix {
     fn clone(&self) -> Self {
         Self::new(self.path.as_str(), self.gem_contains_cpg).unwrap()
-        // let mut new_inner: LazyMatrixInner = /*  */;
-        // LazyMatrix {
-        //     inner: new_inner
-        // }
     }
 }
 
@@ -147,13 +110,28 @@ pub struct Dataset {
 }
 
 impl Dataset {
+    /// Creates an instance of Dataset from a path
+    /// # Args
+    /// * `path`: Path of file to create the Dataset
+    /// * `gem_contains_cpg`: True if second column must be considered as a CpG Site ID. False for normal datasets
     pub fn new(path: &str, gem_contains_cpg: bool) -> PyResult<Self> {
         let mut reader = reader_from_path(path)?;
-        let headers = headers_from_reader(&mut reader);
+        let headers = Self::headers_from_reader(&mut reader);
 
         Ok(Dataset {
             headers,
             lazy_matrix: LazyMatrix::new(path, gem_contains_cpg)?,
         })
+    }
+
+    /// Gets Dataset headers from its reader
+    /// # Args
+    /// * `reader`: CSV Reader to extract headers
+    fn headers_from_reader(reader: &mut Reader<File>) -> Vec<String> {
+        let headers: csv::StringRecord = reader.headers().unwrap().to_owned();
+        headers
+            .into_iter()
+            .map(|header| header.to_string())
+            .collect::<Vec<String>>()
     }
 }
