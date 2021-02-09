@@ -34,7 +34,7 @@ impl LazyMatrix {
     /// Creates an instance of LazyMatrix from a path
     /// # Args
     /// * `path`: Path of file to create the LazyMatrix
-    /// * `gem_contains_cpg`: True if second column must be considered as a CpG Site ID. False for normal datasets
+    /// * `gem_contains_cpg`: True if second column of GEM dataset must be considered as a CpG Site ID. False for normal datasets
     fn new(path: &str, gem_contains_cpg: bool) -> PyResult<Self> {
         let lazy_matrix = Self::lazy_matrix(path, gem_contains_cpg)?;
 
@@ -51,7 +51,7 @@ impl LazyMatrix {
     /// In case of error, panics informing the line and column with invalid format.
     /// # Args
     /// * `path`: Path of the dataset
-    /// * `gem_contains_cpg`: True if second column must be considered as a CpG Site ID. False for normal datasets
+    /// * `gem_contains_cpg`: True if second column of GEM dataset must be considered as a CpG Site ID. False for normal datasets
     fn lazy_matrix(path: &str, with_cpg_site_id: bool) -> PyResult<LazyMatrixInner> {
         // Build the CSV reader and iterate over each record.
         let reader = reader_from_path(path)?;
@@ -113,7 +113,7 @@ impl Dataset {
     /// Creates an instance of Dataset from a path
     /// # Args
     /// * `path`: Path of file to create the Dataset
-    /// * `gem_contains_cpg`: True if second column must be considered as a CpG Site ID. False for normal datasets
+    /// * `gem_contains_cpg`: True if second column of GEM dataset must be considered as a CpG Site ID. False for normal datasets
     pub fn new(path: &str, gem_contains_cpg: bool) -> PyResult<Self> {
         let mut reader = reader_from_path(path)?;
         let headers = Self::headers_from_reader(&mut reader);

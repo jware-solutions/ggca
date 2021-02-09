@@ -191,9 +191,9 @@ dependencies = [
 
 [[package]]
 name = "extsort"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf30baed010c242482412714240f7793f3a16e8f2a294132e5eaf4ac6fc79761"
+checksum = "ffc5bb6fbca3c5ce6a51f6857eab8c35c898b2fbcb62ff1b728243dd19ec0c9f"
 dependencies = [
  "rayon",
  "skeptic",

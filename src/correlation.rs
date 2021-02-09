@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use pyo3::prelude::*;
 use rgsl::{randist::beta::beta_P, randist::t_distribution::tdist_Q, statistics::{correlation, spearman}};
 use serde_derive::{Deserialize, Serialize};
@@ -54,18 +53,6 @@ impl std::fmt::Display for CorResult {
 }
 
 impl Eq for CorResult {}
-
-impl Ord for CorResult {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(&other).unwrap()
-    }
-}
-
-impl PartialOrd for CorResult {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.p_value.partial_cmp(&other.p_value)
-    }
-}
 
 impl Sortable for CorResult {
     fn encode<W: Write>(&self, writer: &mut W) {

@@ -84,6 +84,11 @@ pub mod analysis {
     }
 
     impl Analysis {
+        /// Creates an instance of Analysis from both datasets path
+        /// # Args
+        /// * `file_1_path`: Path of mRNA dataset
+        /// * `file_2_path`: Path of GEM (miRNA, CNA, Methylation) dataset 
+        /// * `gem_contains_cpg`: True if second column of GEM dataset must be considered as a CpG Site ID. False for normal datasets
         pub fn new_from_files(
             file_1_path: String,
             file_2_path: String,
@@ -121,10 +126,10 @@ pub mod analysis {
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool,
-            collect_right_part: bool,
+            collect_gem_dataset: bool,
+            keep_top_n: Option<usize>,
         ) -> PyResult<(VecOfResults, u64)> {
             // Cartesian product computing correlation and p-value
-            println!("Seleccionando metodo");
             let correlation_method_struct =
                 get_correlation_method(correlation_method, number_of_samples);
             let correlation_function = if is_all_vs_all {
@@ -135,10 +140,9 @@ pub mod analysis {
 
             // Right part of iproduct must implement Clone. For more info read:
             // https://users.rust-lang.org/t/iterators-over-csv-files-with-iproduct/51947
-            println!("Aplicando cartesiano");
             let cross_product: Box<
                 dyn Iterator<Item = (TupleExpressionValues, TupleExpressionValues)>,
-            > = if collect_right_part {
+            > = if collect_gem_dataset {
                 Box::new(self.cartesian_product(
                     dataset_1.lazy_matrix,
                     dataset_2.lazy_matrix.collect::<CollectedMatrix>(),
@@ -157,36 +161,32 @@ pub mod analysis {
                 Box<dyn Iterator<Item = CorResult>>,
                 u64,
             ) = if is_all_vs_all {
-                println!("Se seleccionó todos vs todos");
                 (Box::new(correlations_and_p_values), len_m1 * len_m2)
             } else {
-                println!("Se seleccionó solo coincidentes");
                 let (res, count_aux) = correlations_and_p_values
                     .filter(|cor_result| cor_result.gene == cor_result.gem)
                     .tee();
                 (Box::new(res), count_aux.count() as u64)
             };
 
-            // println!("Numero de elementos -> {}",filtered.count());
-
             // Sorting (for future adjustment). Note: consumes iterator
             let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
                 AdjustmentMethod::Bonferroni => Box::new(filtered),
                 _ => {
-                    // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value to
+                    // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value (ascending order) to
                     // make the adjustment
                     let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
-                    Box::new(sorter.sort(filtered)?)
+                    Box::new(sorter.sort_by(filtered, |result_1, result_2| {
+                        result_1.p_value.partial_cmp(&result_2.p_value).unwrap()
+                    })?)
                 }
             };
 
             // Ranking
-            println!("Aplicando ranking");
             let ranked = sorted.enumerate();
 
             // Filtering. Improves performance adjusting only the final combinations, note that
             // ranking is preserved
-            println!("Aplicando filtro");
             let filtered = ranked.filter(|(_, cor_and_p_value)| {
                 // Unwrap is safe as None correlation values will be filtered before (they are None
                 // when is_all_vs_all == false)
@@ -194,7 +194,6 @@ pub mod analysis {
             });
 
             // Adjustment
-            println!("Aplicando ajuste");
             let mut adjustment_struct =
                 get_adjustment_method(adjustment_method, number_of_evaluated_combinations as f64);
             let adjusted = filtered.map(|(rank, mut cor_and_p_value)| {
@@ -207,10 +206,25 @@ pub mod analysis {
                 cor_and_p_value
             });
 
-            // println!("Returning {} elements", adjusted.count());
+            // Keep top N if needed
+            let limited: Box<dyn Iterator<Item = CorResult>> = match keep_top_n {
+                Some(top_n) => {
+                    // Sorts by correlation in descending order
+                    let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
+                    let sorted_cor_desc = sorter.sort_by(adjusted, |combination_1, combination_2| {
+                        // Unwrap is safe as Correlation values are all valid in this stage of algorithm (None
+                        // were discarded in all vs all checking stage)
+                        combination_2.correlation.unwrap().abs().partial_cmp(
+                            &combination_1.correlation.unwrap().abs()
+                        ).unwrap()
+                    })?;
+                    Box::new(sorted_cor_desc.take(top_n))
+                },
+                None => Box::new(adjusted),
+            };
 
             Ok((
-                adjusted.collect::<VecOfResults>(),
+                limited.collect::<VecOfResults>(),
                 number_of_evaluated_combinations,
             ))
         }
@@ -245,13 +259,11 @@ pub mod analysis {
                     // Index column will be remove after
                     let mut m2_headers_to_compare = m2_headers;
                     let mut advice_message = "";
-                    println!("Hace un remove de headers to compar");
                     if gem_contains_cpg {
                         m2_headers_to_compare.remove(1); // Removes CpG Site IDs column
                         advice_message = "(without taking the CpG Site IDs column into account)";
                     }
 
-                    println!("Compara longitudes");
                     if dataset_1_headers.len() != m2_headers_to_compare.len() {
                         Err(GGCADiffSamplesLength::new_err(format!(
                             "Length of samples in datasets are different:
@@ -262,22 +274,17 @@ pub mod analysis {
                             advice_message
                         )))
                     } else {
-                        println!("Hace un remove de los headers");
                         // Needs to remove index column as these are not samples and could have different names
                         dataset_1_headers.remove(0);
                         m2_headers_to_compare.remove(0);
 
-                        println!("Compara los samples");
                         if dataset_1_headers != m2_headers_to_compare {
-                            println!("Hubo un problema");
                             Err(GGCADiffSamples::new_err(
                                 "Samples in both datasets are different but they have the same length, maybe they are in different order"
                             ))
                         } else {
-                            println!("Hace un count de m2_aux.1");
                             let len_m2 = m2_aux.lazy_matrix.count();
 
-                            println!("Sale de df_and_shape");
                             Ok((
                                 dataset_1,
                                 len_m1 as u64,
@@ -291,6 +298,15 @@ pub mod analysis {
             }
         }
 
+        /// Computes analysis and returns a vec of CorResult
+        /// # Args
+        /// * `correlation_method`: Correlation method (Pearson, Spearman or Kendall)
+        /// * `correlation_threshold`: Threshold to discard all results which are below this value
+        /// * `sort_buf_size`: Number of elements to hold in memory during external sorting. Bigger values gives better performance but uses more memory
+        /// * `adjustment_method`: P-values adjustment method (Benjamini-Hochberg, Benjamini-Yekutieli, Bonferroni or None)
+        /// * `is_all_vs_all`: True if all Genes must be evaluated with all GEMs. Otherwise only matching Genes/GEM will be evaluated (useful for CNA or Methylation analysis)
+        /// * `collect_gem_dataset`: True to make the GEM dataset available in memory. This has a HUGE impact in analysis performance. Specify a boolean value to force or use None to allocate in memory automatically when GEM dataset size is small (<= 100MB)
+        /// * `keep_top_n`: Specify a number of results to keep or None to return all the resulting combinations
         pub fn compute(
             &self,
             correlation_method: CorrelationMethod,
@@ -298,7 +314,8 @@ pub mod analysis {
             sort_buf_size: u64,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool,
-            collect_right_part: Option<bool>,
+            collect_gem_dataset: Option<bool>,
+            keep_top_n: Option<usize>,
         ) -> PyResult<(VecOfResults, u64)> {
             let (m1, len_m1, m2, len_m2, number_of_samples) = self.datasets_and_shapes(
                 self.file_1_path.as_str(),
@@ -306,8 +323,8 @@ pub mod analysis {
                 self.gem_contains_cpg,
             )?;
 
-            let should_collect_right_part = match collect_right_part {
-                Some(collect_right_part_value) => collect_right_part_value,
+            let should_collect_gem_dataset = match collect_gem_dataset {
+                Some(collect_gem_dataset_value) => collect_gem_dataset_value,
                 None => {
                     // If None, it's defined automatically from the size of the dataset:
                     // It'll be collected if the GEM dataset size is less than 100 MB
@@ -317,9 +334,6 @@ pub mod analysis {
                 }
             };
 
-            println!("should_collect_right_part -> {}", should_collect_right_part);
-
-            println!("Comienza el analysis!");
             self.run_analysis(
                 m1,
                 len_m1,
@@ -331,7 +345,8 @@ pub mod analysis {
                 sort_buf_size,
                 adjustment_method,
                 is_all_vs_all,
-                should_collect_right_part,
+                should_collect_gem_dataset,
+                keep_top_n,
             )
         }
     }
@@ -360,7 +375,8 @@ pub mod analysis {
         adjustment_method: i32,
         all_vs_all: bool,
         gem_contains_cpg: bool,
-        collect_right_part: Option<bool>,
+        collect_gem_dataset: Option<bool>,
+        keep_top_n: Option<usize>,
     ) -> PyResult<(VecOfResults, u64)> {
         py.allow_threads(|| {
             let experiment = Analysis::new_from_files(file_1_path, file_2_path, gem_contains_cpg);
@@ -382,7 +398,8 @@ pub mod analysis {
                 sort_buf_size,
                 adjustment_method,
                 all_vs_all,
-                collect_right_part,
+                collect_gem_dataset,
+                keep_top_n,
             )
         })
     }

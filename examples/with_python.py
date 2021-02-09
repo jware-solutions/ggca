@@ -15,7 +15,7 @@ BONFERRONI = 3
 
 def main():
 	mrna_file_path = "mrna.csv"
-	gem_file_path = "gem.csv"
+	gem_file_path = "mirna.csv"
 
 	try:
 		(result_combinations, evaluated_combinations) = ggca.correlate(
@@ -26,7 +26,9 @@ def main():
 			sort_buf_size=2_000_000,
 			adjustment_method=BENJAMINI_HOCHBERG,
 			all_vs_all=True,
-			gem_contains_cpg=False
+			gem_contains_cpg=False,
+			collect_gem_dataset=None,
+			keep_top_n=2  # Keeps only top 2 elements
 		)
 
 		print(f'Number of resulting combinations: {len(result_combinations)} of {evaluated_combinations} evaluated combinations')
