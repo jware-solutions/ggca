@@ -59,24 +59,26 @@ impl LazyMatrix {
             // Gets current record and its line
             let record = record_result.unwrap();
             let line = record.position().unwrap().line();
-            let mut it = record.into_iter();
+            let mut cells_it = record.into_iter();
 
             // Gets Gene/GEM and, if needed, CpG Site ID
-            let gene_or_gem = it.next().unwrap().to_string();
+            let gene_or_gem = cells_it.next().unwrap().to_string();
             let cpg_site_id = if with_cpg_site_id {
-                Some(it.next().unwrap().to_string())
+                Some(cells_it.next().unwrap().to_string())
             } else {
                 None
             };
 
             // Casts all cells to float
-            let values = it
+            let values = cells_it
                 .enumerate()
                 .map(|(column_idx, cell)| {
                     // + 1 or +2 as it doesn't take index (and CpG Site ID) column/s into account
-                    fast_float::parse(cell).expect(&format!(
+                    fast_float::parse(cell)
+                    // Avoids using expect() to prevent calling format()
+                    .unwrap_or_else(|_| panic!(
                         "Line {} column {} has an invalid value -> '{}'.
-                                \nFirst column must be the Gene/GEM and the rest the samples",
+                        \nFirst column must be the Gene/GEM and the rest the samples",
                         line,
                         column_idx + (if with_cpg_site_id { 2 } else { 1 }),
                         cell
