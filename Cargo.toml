@@ -2,13 +2,11 @@
 authors = ["JWare <jware.organization@gmail.com>"]
 edition = "2018"
 name = "ggca"
-version = "0.2.0"
+version = "0.2.1"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 name = "ggca"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 GSL = "2.0.1"
