@@ -118,7 +118,6 @@ impl Correlation for Spearman {
 
         // P-value (two-sided)
         // Same behavior as Python Scipy's spearmanr method
-        // let t = r * np.sqrt((dof/((rs+1.0)*(1.0-rs))).clip(0))
         let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
         let ccdf = tdist_Q(t.abs(), self.degrees_of_freedom);
         let p_value = 2.0 * ccdf;
