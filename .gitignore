@@ -1,3 +1,4 @@
 /target
 /venv
 .vscode/settings.json
+.idea/

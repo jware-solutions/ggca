@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use rgsl::{randist::beta::beta_P, randist::t_distribution::tdist_Q, statistics::{correlation, spearman}};
+use rgsl::{randist::t_distribution::{tdist_P, tdist_Q}, statistics::{correlation, spearman}};
 use serde_derive::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -71,13 +71,15 @@ pub trait Correlation {
 
 pub struct Pearson {
     n: usize,
-    ab: f64,
+    degrees_of_freedom: f64,
 }
 
 impl Pearson {
     fn new(n: usize) -> Self {
-        let ab = (n / 2 - 1) as f64;
-        Pearson { ab, n }
+        Pearson {
+            n,
+            degrees_of_freedom: (n - 2) as f64,
+        }
     }
 }
 
@@ -85,10 +87,10 @@ impl Correlation for Pearson {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
         let r = correlation(x, 1, y, 1, self.n);
 
-        // P-value
-        // Same behavior as Python Scipy's pearsonr method
-        let x = 0.5 * (1.0 - r.abs());
-        let p_value = 2.0 * beta_P(x, self.ab, self.ab);
+        // P-value (two-sided)
+        // Based on R's cor.test method (https://github.com/SurajGupta/r-source/blob/a28e609e72ed7c47f6ddfbb86c85279a0750f0b7/src/library/stats/R/cor.test.R#L21)
+        let statistic = self.degrees_of_freedom.sqrt() * r / (1.0 - r.powi(2)).sqrt();
+        let p_value = 2.0 * tdist_P(statistic, self.degrees_of_freedom).min(tdist_Q(statistic, self.degrees_of_freedom));
 
         (r, p_value)
     }
@@ -114,7 +116,7 @@ impl Correlation for Spearman {
         let workspace: &mut [f64] = vec.as_mut_slice();
         let rs = spearman(x, 1, y, 1, self.n, workspace);
 
-        // P-value
+        // P-value (two-sided)
         // Same behavior as Python Scipy's spearmanr method
         // let t = r * np.sqrt((dof/((rs+1.0)*(1.0-rs))).clip(0))
         let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
@@ -126,12 +128,13 @@ impl Correlation for Spearman {
 }
 
 struct Kendall {
-    n: usize
+    // n: usize
 }
 
 impl Kendall {
-    fn new(n: usize) -> Self {
-        Kendall { n }
+    fn new(_n: usize) -> Self {
+        // Kendall { n }
+        Kendall {}
     }
 }
 
@@ -147,7 +150,7 @@ impl Correlation for Kendall {
         //     a.partial_cmp(&b).unwrap_or(Ordering::Greater)
         // }).unwrap();
 
-        // P-value
+        // P-value (two-sided)
         
         // FIXME: significance value seems to be wrong. Issue: https://github.com/zolkko/kendalls/issues/2
         // let significance = kendalls::significance(tau, x.len()); // If this line is correct, use self.n instead of x.len()

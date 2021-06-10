@@ -1,5 +1,7 @@
 # Gene GEM Correlation Analysis (GGCA)
 
+Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets.
+
 
 ## Requirements
 

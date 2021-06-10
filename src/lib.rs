@@ -129,7 +129,7 @@ pub mod analysis {
             collect_gem_dataset: bool,
             keep_top_n: Option<usize>,
         ) -> PyResult<(VecOfResults, u64)> {
-            // Cartesian product computing correlation and p-value
+            // Cartesian product computing correlation and p-value (two-sided)
             let correlation_method_struct =
                 get_correlation_method(correlation_method, number_of_samples);
             let correlation_function = if is_all_vs_all {
