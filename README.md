@@ -122,7 +122,7 @@ We provide a Docker image to execute all the commands listed below:
 		- Maturin build (just builds the wheel for your current Python version): `maturin build --manylinux=1-unchecked`
 - To publish in PyPi:
 	1. Install twine: `pip install twine`
-	1. Upload: `twine upload -u <username> -p <password> ./target/wheels/wheelhouse/*`
+	1. Upload: `twine upload ./target/wheels/wheelhouse/*`
 
 [gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
