@@ -16,7 +16,7 @@ extsort = "0.4.2"
 fast-float = "0.2"
 itertools = "0.9.0"
 kendalls = "0.1.5"
-pyo3 = "0.12.4"
+pyo3 = "0.15.1"
 serde = {version = "1.0.14", default-features = false}
 serde_derive = {version = "1.0.14", default-features = false}
 
