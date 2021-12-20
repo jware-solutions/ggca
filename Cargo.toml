@@ -2,7 +2,7 @@
 authors = ["JWare <jware.organization@gmail.com>"]
 edition = "2018"
 name = "ggca"
-version = "0.3.0"
+version = "0.4.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
