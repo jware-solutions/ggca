@@ -355,6 +355,7 @@ pub mod analysis {
     #[pymodule]
     fn ggca(py: Python, m: &PyModule) -> PyResult<()> {
         m.add_function(wrap_pyfunction!(correlate, m)?)?;
+        m.add_class::<CorResult>()?;
         m.add("GGCAError", py.get_type::<GGCAError>())?;
         m.add(
             "GGCADiffSamplesLength",
