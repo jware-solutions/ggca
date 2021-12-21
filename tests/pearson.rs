@@ -1,8 +1,8 @@
 mod common;
 
 use crate::common::{
-    assert_eq_results, get_tuples_from_result, merge_with_adjustment, ResultTupleSimple,
-    ResultTupleWithoutAdj,
+    assert_eq_results, get_sorted_by_correlation, get_tuples_from_result, merge_with_adjustment,
+    ResultTupleSimple, ResultTupleWithoutAdj,
 };
 use ggca::{adjustment::AdjustmentMethod, analysis::Analysis, correlation::CorrelationMethod};
 use itertools::Itertools;
@@ -20,41 +20,6 @@ lazy_static! {
         let gem_contains_cpg = false;
         Analysis::new_from_files(DF1_PATH.to_string(), DF2_PATH.to_string(), gem_contains_cpg)
     };
-
-    /// Benjamini-Hochberg adjustment for EXPECTED_PEARSON_BH
-    static ref BH_ADJUSTMENT: Vec<f64> = vec![
-        3.82741E-213,
-        5.006985E-203,
-        1.296658E-163,
-        3.593738E-161,
-        1.517132E-157,
-        4.336732E-157,
-        4.366186E-155,
-        4.937985E-153,
-        4.731668E-146,
-        3.936499E-143,
-        2.051665E-137,
-        1.377069E-133,
-        1.856516E-133,
-        5.99268E-133,
-        5.271269E-132,
-        3.792948E-127,
-        6.806646E-126,
-        1.452189E-125,
-        2.516578E-124,
-        3.49476E-124,
-        1.981733E-122,
-        9.184536E-122,
-        1.265216E-117,
-        1.550503E-117,
-        2.584503E-117,
-        1.110295E-116,
-        1.526765E-116,
-        2.311734E-116,
-        1.21257E-115,
-        3.433333E-113,
-        5.586191E-108,
-    ];
 
     /// Expected correlations for Pearson method, sorted by p-value ascending
     static ref EXPECTED_PEARSON: ResultTupleWithoutAdj = vec![
@@ -91,8 +56,81 @@ lazy_static! {
         ("AGR2".to_string(), "hsa-mir-577".to_string(), -0.7014995, 3.791311E-112),
     ];
 
+    /// Benjamini-Hochberg adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an ascending order)
+    static ref BH_ADJUSTMENT: Vec<f64> = vec![
+        3.82741E-213,
+        5.006985E-203,
+        1.296658E-163,
+        3.593738E-161,
+        1.517132E-157,
+        4.336732E-157,
+        4.366186E-155,
+        4.937985E-153,
+        4.731668E-146,
+        3.936499E-143,
+        2.051665E-137,
+        1.377069E-133,
+        1.856516E-133,
+        5.99268E-133,
+        5.271269E-132,
+        3.792948E-127,
+        6.806646E-126,
+        1.452189E-125,
+        2.516578E-124,
+        3.49476E-124,
+        1.981733E-122,
+        9.184536E-122,
+        1.265216E-117,
+        1.550503E-117,
+        2.584503E-117,
+        1.110295E-116,
+        1.526765E-116,
+        2.311734E-116,
+        1.21257E-115,
+        3.433333E-113,
+        5.586191E-108,
+    ];
+
+    /// Bonferroni adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an ascending order)
+    static ref BONFERRONI_ADJUSTMENT: Vec<f64> = vec![
+        3.82741E-213,
+        1.001397E-202,
+        3.889973E-163,
+        1.437495E-160,
+        7.585658E-157,
+        2.602039E-156,
+        3.05633E-154,
+        3.950388E-152,
+        4.258501E-145,
+        3.936499E-142,
+        2.256831E-136,
+        1.652483E-132,
+        2.413471E-132,
+        8.389752E-132,
+        7.906904E-131,
+        6.068717E-126,
+        1.15713E-124,
+        2.613939E-124,
+        4.781499E-123,
+        6.989521E-123,
+        4.161638E-121,
+        2.020598E-120,
+        2.909998E-116,
+        3.721207E-116,
+        6.461256E-116,
+        2.886766E-115,
+        4.122266E-115,
+        6.472854E-115,
+        3.516452E-114,
+        1.03E-111,
+        1.731719E-106,
+    ];
+
     // Pearson result with Benjamini-Hochberg adjustment
     static ref EXPECTED_PEARSON_BH: ResultTupleSimple = merge_with_adjustment(&EXPECTED_PEARSON, &BH_ADJUSTMENT);
+
+    // Pearson result with Bonferroni adjustment
+    static ref EXPECTED_PEARSON_BONFERRONI: ResultTupleSimple = merge_with_adjustment(&EXPECTED_PEARSON, &BONFERRONI_ADJUSTMENT);
 }
 
 #[test]
@@ -232,4 +270,37 @@ fn test_pearson_and_bh_only_matching() {
     // As there is no matching genes/GEMs no combinations are evaluated
     assert_eq!(number_of_elements_evaluated, 0);
     assert_eq!(result.len(), 0);
+}
+
+#[test]
+/// Tests Pearson correlation with Bonferroni adjustment. Correlation threshold set to 0.7
+fn test_pearson_and_bonferroni_cor_0_7() {
+    // Some parameters
+    let is_all_vs_all = true;
+    let keep_top_n = None; // Keep all the results
+    let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
+
+    let (result, number_of_elements_evaluated) = ANALYSIS
+        .compute(
+            CorrelationMethod::Pearson,
+            0.7,
+            2_000_000,
+            AdjustmentMethod::Bonferroni,
+            is_all_vs_all,
+            collect_gem_dataset,
+            keep_top_n,
+        )
+        .unwrap();
+
+    // The adjustment method should not modify the number of resulting combinations
+    assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);
+    assert_eq!(result.len(), 31);
+
+    let collected_as_tuples = get_tuples_from_result(&result);
+
+    // Bonferroni does not sort, so
+    let result_sorted = get_sorted_by_correlation(&collected_as_tuples);
+    let expected_sorted = get_sorted_by_correlation(&EXPECTED_PEARSON_BONFERRONI);
+
+    assert_eq_results(&result_sorted, &expected_sorted);
 }
