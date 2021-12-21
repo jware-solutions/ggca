@@ -126,11 +126,49 @@ lazy_static! {
         1.731719E-106,
     ];
 
+    /// Benjamini-Yekutieli adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an ascending order)
+    static ref BY_ADJUSTMENT: Vec<f64> = vec![
+        5.208772E-212,
+6.814071E-202,
+1.764638E-162,
+4.890765E-160,
+2.064684E-156,
+5.901915E-156,
+5.941999E-154,
+6.720167E-152,
+6.439388E-145,
+5.357233E-142,
+2.792137E-136,
+1.874071E-132,
+2.526557E-132,
+8.155516E-132,
+7.173739E-131,
+5.161872E-126,
+9.263253E-125,
+1.976302E-124,
+3.424844E-123,
+4.756065E-123,
+2.696966E-121,
+1.249935E-120,
+1.72185E-116,
+2.1101E-116,
+3.517283E-116,
+1.511015E-115,
+2.077794E-115,
+3.146068E-115,
+1.650202E-114,
+4.672468E-112,
+7.60232E-107,
+    ];
+
     // Pearson result with Benjamini-Hochberg adjustment
     static ref EXPECTED_PEARSON_BH: ResultTupleSimple = merge_with_adjustment(&EXPECTED_PEARSON, &BH_ADJUSTMENT);
 
     // Pearson result with Bonferroni adjustment
     static ref EXPECTED_PEARSON_BONFERRONI: ResultTupleSimple = merge_with_adjustment(&EXPECTED_PEARSON, &BONFERRONI_ADJUSTMENT);
+
+    // Pearson result with Benjamini-Yekutieli adjustment
+    static ref EXPECTED_PEARSON_BY: ResultTupleSimple = merge_with_adjustment(&EXPECTED_PEARSON, &BY_ADJUSTMENT);
 }
 
 #[test]
@@ -298,9 +336,37 @@ fn test_pearson_and_bonferroni_cor_0_7() {
 
     let collected_as_tuples = get_tuples_from_result(&result);
 
-    // Bonferroni does not sort, so
+    // Bonferroni does not sort, so sorts both vec of tuples by correlation descending and compares
     let result_sorted = get_sorted_by_correlation(&collected_as_tuples);
     let expected_sorted = get_sorted_by_correlation(&EXPECTED_PEARSON_BONFERRONI);
 
     assert_eq_results(&result_sorted, &expected_sorted);
+}
+
+#[test]
+/// Tests Pearson correlation with Benjamini-Yekutieli adjustment. Correlation threshold set to 0.7
+fn test_pearson_and_by_cor_0_7() {
+    // Some parameters
+    let is_all_vs_all = true;
+    let keep_top_n = None; // Keep all the results
+    let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
+
+    let (result, number_of_elements_evaluated) = ANALYSIS
+        .compute(
+            CorrelationMethod::Pearson,
+            0.7,
+            2_000_000,
+            AdjustmentMethod::BenjaminiYekutieli,
+            is_all_vs_all,
+            collect_gem_dataset,
+            keep_top_n,
+        )
+        .unwrap();
+
+	// The adjustment method should not modify the number of resulting combinations
+    assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);
+    assert_eq!(result.len(), 31);
+
+    let collected_as_tuples = get_tuples_from_result(&result);
+    assert_eq_results(&collected_as_tuples, &EXPECTED_PEARSON_BY);
 }
