@@ -1,6 +1,9 @@
 mod common;
 
-use crate::common::{assert_eq_results, get_tuples_from_result, ResultTupleSimple, ResultTupleWithoutAdj, merge_with_adjustment};
+use crate::common::{
+    assert_eq_results, get_tuples_from_result, merge_with_adjustment, ResultTupleSimple,
+    ResultTupleWithoutAdj,
+};
 use ggca::{adjustment::AdjustmentMethod, analysis::Analysis, correlation::CorrelationMethod};
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -20,40 +23,40 @@ lazy_static! {
 
     /// Benjamini-Hochberg adjustment for EXPECTED_PEARSON_BH
     static ref BH_ADJUSTMENT: Vec<f64> = vec![
-		3.82741E-213,
-		5.006985E-203,
-		1.296658E-163,
-		3.593738E-161,
-		1.517132E-157,
-		4.336732E-157,
-		4.366186E-155,
-		4.937985E-153,
-		4.731668E-146,
-		3.936499E-143,
-		2.051665E-137,
-		1.377069E-133,
-		1.856516E-133,
-		5.99268E-133,
-		5.271269E-132,
-		3.792948E-127,
-		6.806646E-126,
-		1.452189E-125,
-		2.516578E-124,
-		3.49476E-124,
-		1.981733E-122,
-		9.184536E-122,
-		1.265216E-117,
-		1.550503E-117,
-		2.584503E-117,
-		1.110295E-116,
-		1.526765E-116,
-		2.311734E-116,
-		1.21257E-115,
-		3.433333E-113,
-		5.586191E-108,
-	];
+        3.82741E-213,
+        5.006985E-203,
+        1.296658E-163,
+        3.593738E-161,
+        1.517132E-157,
+        4.336732E-157,
+        4.366186E-155,
+        4.937985E-153,
+        4.731668E-146,
+        3.936499E-143,
+        2.051665E-137,
+        1.377069E-133,
+        1.856516E-133,
+        5.99268E-133,
+        5.271269E-132,
+        3.792948E-127,
+        6.806646E-126,
+        1.452189E-125,
+        2.516578E-124,
+        3.49476E-124,
+        1.981733E-122,
+        9.184536E-122,
+        1.265216E-117,
+        1.550503E-117,
+        2.584503E-117,
+        1.110295E-116,
+        1.526765E-116,
+        2.311734E-116,
+        1.21257E-115,
+        3.433333E-113,
+        5.586191E-108,
+    ];
 
-	/// Expected correlations for Pearson method, sorted by p-value ascending
+    /// Expected correlations for Pearson method, sorted by p-value ascending
     static ref EXPECTED_PEARSON: ResultTupleWithoutAdj = vec![
         ("C6orf155".to_string(), "hsa-mir-30a".to_string(), 0.8581767, 8.379477E-219),
         ("BTLA".to_string(), "hsa-mir-150".to_string(), 0.8479504, 2.192392E-208),
@@ -88,8 +91,8 @@ lazy_static! {
         ("AGR2".to_string(), "hsa-mir-577".to_string(), -0.7014995, 3.791311E-112),
     ];
 
-	// Pearson result with Benjamini-Hochberg adjustment
-	static ref EXPECTED_PEARSON_BH: ResultTupleSimple = merge_with_adjustment(&EXPECTED_PEARSON, &BH_ADJUSTMENT);
+    // Pearson result with Benjamini-Hochberg adjustment
+    static ref EXPECTED_PEARSON_BH: ResultTupleSimple = merge_with_adjustment(&EXPECTED_PEARSON, &BH_ADJUSTMENT);
 }
 
 #[test]
