@@ -3,6 +3,7 @@ pub mod correlation;
 pub mod dataset;
 pub mod types;
 
+// TODO: refactor -> extract to analysis.rs
 pub mod analysis {
     extern crate extsort;
     use crate::dataset::{Dataset, GGCAError};
@@ -117,18 +118,18 @@ pub mod analysis {
         fn run_analysis(
             &self,
             dataset_1: Dataset,
-            len_m1: u64,
+            len_m1: usize,
             dataset_2: Dataset,
-            len_m2: u64,
+            len_m2: usize,
             number_of_samples: usize,
             correlation_method: CorrelationMethod,
             correlation_threshold: f64,
-            sort_buf_size: u64,
+            sort_buf_size: usize,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool,
             collect_gem_dataset: bool,
             keep_top_n: Option<usize>,
-        ) -> PyResult<(VecOfResults, u64)> {
+        ) -> PyResult<(VecOfResults, usize)> {
             // Cartesian product computing correlation and p-value (two-sided)
             let correlation_method_struct =
                 get_correlation_method(correlation_method, number_of_samples);
@@ -159,14 +160,14 @@ pub mod analysis {
             // Counts element for future p-value adjustment
             let (filtered, number_of_evaluated_combinations): (
                 Box<dyn Iterator<Item = CorResult>>,
-                u64,
+                usize,
             ) = if is_all_vs_all {
                 (Box::new(correlations_and_p_values), len_m1 * len_m2)
             } else {
                 let (res, count_aux) = correlations_and_p_values
                     .filter(|cor_result| cor_result.gene == cor_result.gem)
                     .tee();
-                (Box::new(res), count_aux.count() as u64)
+                (Box::new(res), count_aux.count())
             };
 
             // Sorting (for future adjustment). Note: consumes iterator
@@ -235,7 +236,7 @@ pub mod analysis {
             df1_path: &str,
             df2_path: &str,
             gem_contains_cpg: bool,
-        ) -> PyResult<(Dataset, u64, Dataset, u64, usize)> {
+        ) -> PyResult<(Dataset, usize, Dataset, usize, usize)> {
             let dataset_1 = Dataset::new(df1_path, false)?;
             let mut dataset_1_headers = dataset_1.headers.clone();
             let dataset_1_aux = Dataset::new(df1_path, false)?;
@@ -287,9 +288,9 @@ pub mod analysis {
 
                             Ok((
                                 dataset_1,
-                                len_m1 as u64,
+                                len_m1,
                                 matrix_2,
-                                len_m2 as u64,
+                                len_m2,
                                 number_of_samples,
                             ))
                         }
@@ -311,12 +312,12 @@ pub mod analysis {
             &self,
             correlation_method: CorrelationMethod,
             correlation_threshold: f64,
-            sort_buf_size: u64,
+            sort_buf_size: usize,
             adjustment_method: AdjustmentMethod,
             is_all_vs_all: bool,
             collect_gem_dataset: Option<bool>,
             keep_top_n: Option<usize>,
-        ) -> PyResult<(VecOfResults, u64)> {
+        ) -> PyResult<(VecOfResults, usize)> {
             let (m1, len_m1, m2, len_m2, number_of_samples) = self.datasets_and_shapes(
                 self.file_1_path.as_str(),
                 self.file_2_path.as_str(),
@@ -372,13 +373,13 @@ pub mod analysis {
         file_2_path: String,
         correlation_method: i32,
         correlation_threshold: f64,
-        sort_buf_size: u64,
+        sort_buf_size: usize,
         adjustment_method: i32,
         all_vs_all: bool,
         gem_contains_cpg: bool,
         collect_gem_dataset: Option<bool>,
         keep_top_n: Option<usize>,
-    ) -> PyResult<(VecOfResults, u64)> {
+    ) -> PyResult<(VecOfResults, usize)> {
         py.allow_threads(|| {
             let experiment = Analysis::new_from_files(file_1_path, file_2_path, gem_contains_cpg);
             let correlation_method = match correlation_method {
