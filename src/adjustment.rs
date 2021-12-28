@@ -15,7 +15,7 @@ impl Bonferroni {
 
 impl Adjustment for Bonferroni {
 	fn adjust(&mut self, p_value: f64, _: usize) -> f64 {
-		p_value * self.total_number_of_elements
+		(p_value * self.total_number_of_elements).min(1.0)
 	}
 }
 
