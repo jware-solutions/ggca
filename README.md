@@ -124,7 +124,20 @@ We provide a Docker image to execute all the commands listed below:
 	1. Install twine: `pip install twine`
 	1. Upload: `twine upload ./target/wheels/wheelhouse/*`
 
+
+### Tests
+
+All the correlation, p-values and adjusted p-values were taken from [cor.test][r-cor-test] and [p.adjust][r-p-adjust] functions from the R programming language and [statsmodels][statsmodels] package for Python language.
+
+Data in `small_files` folder was retrieved with random sampling from the *Colorectal Adenocarcinoma (TCGA, Nature 2012)* dataset. This dataset can be downloaded from [cBioPortal datasets page][cbioportal-datasets-page] or [this direct link][colorectal-dataset].
+
+
 [gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
 [kendalls-issue]: https://github.com/zolkko/kendalls/issues/2
 [scipy]: https://www.scipy.org/
+[r-cor-test]: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/cor.test
+[r-p-adjust]: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/p.adjust
+[statsmodels]: https://www.statsmodels.org/dev/generated/statsmodels.stats.multitest.multipletests.html
+[cbioportal-datasets-page]: https://www.cbioportal.org/datasets
+[colorectal-dataset]: https://cbioportal-datahub.s3.amazonaws.com/coadread_tcga_pub.tar.gz
