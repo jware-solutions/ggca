@@ -63,7 +63,7 @@ for combination in result_combinations:
 
 ### Rust
 
-1. Add crate to `Cargo.toml`: `ggca = "0.1.9"`
+1. Add crate to `Cargo.toml`: `ggca = "0.4.0"`
 1. Create an experiment and run it:
 
 ```rust
