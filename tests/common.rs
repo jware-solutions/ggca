@@ -44,15 +44,14 @@ pub fn assert_eq_results(result: &ResultTupleSimple, expected: &ResultTupleSimpl
         assert_relative_eq!(a.2, b.2, epsilon = 1e-7); // R cor.test only provides a 6/7 digit precision for correlation values
         assert_relative_eq!(a.3, b.3, epsilon = 1e-9);
         assert_relative_eq!(a.4, b.4, epsilon = 1e-9);
-		
     });
 }
 
-/// Sorts a vec of tuples by correlation descending
-pub fn get_sorted_by_correlation(result: &ResultTupleSimple) -> ResultTupleSimple {
+/// Sorts a vec of tuples by abs correlation descending
+pub fn get_sorted_by_correlation_abs_desc(result: &ResultTupleSimple) -> ResultTupleSimple {
     result
         .iter()
-        .sorted_by(|a, b| b.2.partial_cmp(&a.2).unwrap())
+        .sorted_by(|a, b| b.2.abs().partial_cmp(&a.2.abs()).unwrap())
         .cloned()
         .collect()
 }

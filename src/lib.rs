@@ -4,6 +4,7 @@ pub mod dataset;
 pub mod types;
 
 // TODO: refactor -> extract to analysis.rs
+// TODO: add tests for filtering NaNs values when std is 0 (correlations and p-values = NaNs)
 pub mod analysis {
     extern crate extsort;
     use crate::dataset::{Dataset, GGCAError};
@@ -88,7 +89,7 @@ pub mod analysis {
         /// Creates an instance of Analysis from both datasets path
         /// # Args
         /// * `file_1_path`: Path of mRNA dataset
-        /// * `file_2_path`: Path of GEM (miRNA, CNA, Methylation) dataset 
+        /// * `file_2_path`: Path of GEM (miRNA, CNA, Methylation) dataset
         /// * `gem_contains_cpg`: True if second column of GEM dataset must be considered as a CpG Site ID. False for normal datasets
         pub fn new_from_files(
             file_1_path: String,
@@ -174,11 +175,15 @@ pub mod analysis {
             let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
                 AdjustmentMethod::Bonferroni => Box::new(filtered),
                 _ => {
-                    // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value (ascending order) to
+                    // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value (descending order) to
                     // make the adjustment
                     let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
                     Box::new(sorter.sort_by(filtered, |result_1, result_2| {
-                        result_1.p_value.partial_cmp(&result_2.p_value).unwrap()
+                        result_2
+                            .p_value
+                            .unwrap()
+                            .partial_cmp(&result_1.p_value.unwrap())
+                            .unwrap()
                     })?)
                 }
             };
@@ -186,18 +191,10 @@ pub mod analysis {
             // Ranking
             let ranked = sorted.enumerate();
 
-            // Filtering. Improves performance adjusting only the final combinations, note that
-            // ranking is preserved
-            let filtered = ranked.filter(|(_, cor_and_p_value)| {
-                // Unwrap is safe as None correlation values will be filtered before (they are None
-                // when is_all_vs_all == false)
-                cor_and_p_value.correlation.unwrap().abs() >= correlation_threshold
-            });
-
             // Adjustment
             let mut adjustment_struct =
                 get_adjustment_method(adjustment_method, number_of_evaluated_combinations as f64);
-            let adjusted = filtered.map(|(rank, mut cor_and_p_value)| {
+            let adjusted = ranked.map(|(rank, mut cor_and_p_value)| {
                 let p_value = cor_and_p_value.p_value;
                 // Unwrap is safe as None p-values will be filtered before (they are None
                 // when is_all_vs_all == false)
@@ -207,21 +204,33 @@ pub mod analysis {
                 cor_and_p_value
             });
 
+            // Filtering. Improves performance adjusting only the final combinations, note that
+            // ranking is preserved
+            let filtered = adjusted.filter(|cor_and_p_value| {
+                // Unwrap is safe as None correlation values will be filtered before (they are None
+                // when is_all_vs_all == false)
+                cor_and_p_value.correlation.unwrap().abs() >= correlation_threshold
+            });
+
             // Keep top N if needed
             let limited: Box<dyn Iterator<Item = CorResult>> = match keep_top_n {
                 Some(top_n) => {
                     // Sorts by correlation in descending order
                     let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
-                    let sorted_cor_desc = sorter.sort_by(adjusted, |combination_1, combination_2| {
-                        // Unwrap is safe as Correlation values are all valid in this stage of algorithm (None
-                        // were discarded in all vs all checking stage)
-                        combination_2.correlation.unwrap().abs().partial_cmp(
-                            &combination_1.correlation.unwrap().abs()
-                        ).unwrap()
-                    })?;
+                    let sorted_cor_desc =
+                        sorter.sort_by(filtered, |combination_1, combination_2| {
+                            // Unwrap is safe as Correlation values are all valid in this stage of algorithm (None
+                            // were discarded in all vs all checking stage)
+                            combination_2
+                                .correlation
+                                .unwrap()
+                                .abs()
+                                .partial_cmp(&combination_1.correlation.unwrap().abs())
+                                .unwrap()
+                        })?;
                     Box::new(sorted_cor_desc.take(top_n))
-                },
-                None => Box::new(adjusted),
+                }
+                None => Box::new(filtered),
             };
 
             Ok((
@@ -286,13 +295,7 @@ pub mod analysis {
                         } else {
                             let len_m2 = m2_aux.lazy_matrix.count();
 
-                            Ok((
-                                dataset_1,
-                                len_m1,
-                                matrix_2,
-                                len_m2,
-                                number_of_samples,
-                            ))
+                            Ok((dataset_1, len_m1, matrix_2, len_m2, number_of_samples))
                         }
                     }
                 }

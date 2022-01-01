@@ -208,12 +208,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95765f67b4b18863968b4a1bd5bb576f732b29a4a28c7cd84c09fa3e2875f33c"
 
 [[package]]
-name = "float-pretty-print"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae1cdc50a756244008a19d313827537e5e18d55f76779e8d5f9aa00769ca231"
-
-[[package]]
 name = "getrandom"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -234,7 +228,6 @@ dependencies = [
  "csv",
  "extsort",
  "fast-float",
- "float-pretty-print",
  "itertools",
  "kendalls",
  "lazy_static",
