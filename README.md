@@ -131,6 +131,8 @@ All the correlation, p-values and adjusted p-values were taken from [cor.test][r
 
 Data in `small_files` folder was retrieved with random sampling from the *Colorectal Adenocarcinoma (TCGA, Nature 2012)* dataset. This dataset can be downloaded from [cBioPortal datasets page][cbioportal-datasets-page] or [this direct link][colorectal-dataset].
 
+All the correlations results were compared directly with R-Multiomics output (old version of [multiomix.org][multiomix] only available for R lang).
+
 
 [gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
@@ -141,3 +143,4 @@ Data in `small_files` folder was retrieved with random sampling from the *Colore
 [statsmodels]: https://www.statsmodels.org/dev/generated/statsmodels.stats.multitest.multipletests.html
 [cbioportal-datasets-page]: https://www.cbioportal.org/datasets
 [colorectal-dataset]: https://cbioportal-datahub.s3.amazonaws.com/coadread_tcga_pub.tar.gz
+[multiomix]: https://www.multiomix.org
