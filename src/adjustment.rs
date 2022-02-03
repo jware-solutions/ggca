@@ -1,4 +1,3 @@
-// TODO: implement in Enum directly
 pub trait Adjustment {
     fn adjust(&mut self, p_value: f64, rank: usize) -> f64;
 }
