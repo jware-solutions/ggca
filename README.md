@@ -1,6 +1,6 @@
 # Gene GEM Correlation Analysis (GGCA)
 
-Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets.
+Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets. It also supports [CpG Site IDs][cpg-site].
 
 
 ## Requirements
@@ -128,6 +128,7 @@ Data in `small_files` folder was retrieved with random sampling from the *Colore
 All the correlations results were compared directly with R-Multiomics output (old version of [multiomix.org][multiomix] only available for R lang).
 
 
+[cpg-site]: https://en.wikipedia.org/wiki/CpG_site
 [gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
 [r-cor-test]: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/cor.test
