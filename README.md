@@ -5,14 +5,8 @@ Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-va
 
 ## Requirements
 
-1. [GSL][gsl] >= 2.6
-1. If Kendall is going to be used it's needed to make some extra stuff until [Kendall crate issue][kendalls-issue] is fixed:
-	- Install [Scipy][scipy] in your system. Or...
-	- Use a virtual environment:
-		1. Create a new Python virtualenv: `python3 -m venv venv`
-		1. Activate virtualenv: `source venv/bin/activate`
-		1. Install Scipy: `pip install scipy`
-		1. Use this library with the virtualenv activated
+You need to install [GSL][gsl] >= 2.6 in your system to use this library.
+
 
 ## Usage
 
@@ -100,11 +94,11 @@ for cor_p_value in result.iter() {
 
 All kind of help is welcome! Feel free o submit an issue or a PR. There are some TODOs which are listed below:
 
-- [ ] Fix Kendall p-value (waiting [#2][kendalls-issue] to be fixed)
 - [ ] Add Rust documentation
 - [ ] Make Rust enums accessible from Python
 - [ ] Add tests
 - [ ] Add MyPy support
+
 
 ### Developing
 
@@ -136,8 +130,6 @@ All the correlations results were compared directly with R-Multiomics output (ol
 
 [gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
-[kendalls-issue]: https://github.com/zolkko/kendalls/issues/2
-[scipy]: https://www.scipy.org/
 [r-cor-test]: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/cor.test
 [r-p-adjust]: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/p.adjust
 [statsmodels]: https://www.statsmodels.org/dev/generated/statsmodels.stats.multitest.multipletests.html
