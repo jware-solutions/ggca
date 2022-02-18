@@ -1,4 +1,4 @@
-FROM konstin2/maturin
+FROM konstin2/maturin:v0.12.9
 
 # Installs GSL 2.6
 WORKDIR /

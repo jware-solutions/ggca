@@ -111,8 +111,8 @@ We provide a Docker image to execute all the commands listed below:
 - Build for rust: cargo build [--release]
 - Build for Python (uses Maturin):
 	1. First of all, remove the `target/wheels` folder: `rm -rf ./target/wheels`
-	1. Build wheels: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build maturin build --release --skip-auditwheel --manylinux=2014`
-	1. Repair wheels to include some missing `.so` files: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build ./repair-wheels.sh`
+	1. Build wheels: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build:0.2.3 maturin build --release --skip-auditwheel --manylinux=2014`
+	1. Repair wheels to include some missing `.so` files: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build:0.2.3 ./repair-wheels.sh`
 - Only for development:
 	- To run the examples you must run with this command due to [an issue][pyo3-issue] with Pyo3: `cargo run [--release] --no-default-features --example <example>`
 	- In Python you can test with Maturin:
