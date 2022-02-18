@@ -69,26 +69,31 @@ fn cartesian_equal_genes(
     }
 }
 
+/// Represents a correlation analysis
+#[derive(Clone, Debug)]
 pub struct Analysis {
-    file_1_path: String,
-    file_2_path: String,
+    /// Gene file path
+    gene_file_path: String,
+    /// Gene Expression Modulator (GEM) file path
+    gem_file_path: String,
+    /// Indicates if the second column of GEM dataset contains CpG Site IDs
     gem_contains_cpg: bool,
 }
 
 impl Analysis {
     /// Creates an instance of Analysis from both datasets path
     /// # Args
-    /// * `file_1_path`: Path of mRNA dataset
-    /// * `file_2_path`: Path of GEM (miRNA, CNA, Methylation) dataset
+    /// * `gene_file_path`: Path of mRNA dataset
+    /// * `gem_file_path`: Path of GEM (miRNA, CNA, Methylation) dataset
     /// * `gem_contains_cpg`: True if second column of GEM dataset must be considered as a CpG Site ID. False for normal datasets
     pub fn new_from_files(
-        file_1_path: String,
-        file_2_path: String,
+        gene_file_path: String,
+        gem_file_path: String,
         gem_contains_cpg: bool,
     ) -> Analysis {
         Analysis {
-            file_1_path,
-            file_2_path,
+            gene_file_path,
+            gem_file_path,
             gem_contains_cpg,
         }
     }
@@ -292,10 +297,10 @@ impl Analysis {
         }
     }
 
-    /// Computes analysis and returns a vec of CorResult
+    /// Computes analysis and returns a vec of CorResult and the number of combinations evaluated
     /// # Args
     /// * `correlation_method`: Correlation method (Pearson, Spearman or Kendall)
-    /// * `correlation_threshold`: Threshold to discard all results which are below this value
+    /// * `correlation_threshold`: The threshold to discard all results whose correlation statistic values are below this value
     /// * `sort_buf_size`: Number of elements to hold in memory during external sorting. Bigger values gives better performance but uses more memory
     /// * `adjustment_method`: P-values adjustment method (Benjamini-Hochberg, Benjamini-Yekutieli, Bonferroni or None)
     /// * `is_all_vs_all`: True if all Genes must be evaluated with all GEMs. Otherwise only matching Genes/GEM will be evaluated (useful for CNA or Methylation analysis)
@@ -312,8 +317,8 @@ impl Analysis {
         keep_top_n: Option<usize>,
     ) -> PyResult<(VecOfResults, usize)> {
         let (m1, len_m1, m2, len_m2, number_of_samples) = self.datasets_and_shapes(
-            self.file_1_path.as_str(),
-            self.file_2_path.as_str(),
+            self.gene_file_path.as_str(),
+            self.gem_file_path.as_str(),
             self.gem_contains_cpg,
         )?;
 
@@ -322,7 +327,7 @@ impl Analysis {
             None => {
                 // If None, it's defined automatically from the size of the dataset:
                 // It'll be collected if the GEM dataset size is less than 100 MB
-                let metadata = fs::metadata(self.file_2_path.as_str())?;
+                let metadata = fs::metadata(self.gem_file_path.as_str())?;
                 let size_in_mb = metadata.len() / 1_048_576;
                 size_in_mb <= 100
             }

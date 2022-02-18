@@ -13,6 +13,10 @@
 //! **Basic example**:
 //! 
 //! ```
+//! use ggca::adjustment::AdjustmentMethod;
+//! use ggca::analysis::Analysis;
+//! use ggca::correlation::CorrelationMethod;
+//! 
 //! // File's paths
 //! let df1_path = "mrna.csv";
 //! let df2_path = "mirna.csv";
@@ -23,7 +27,7 @@
 //! let keep_top_n = Some(10); // Keeps the top 10 of correlation (sorting by abs values)
 //! let collect_gem_dataset = None; // Better performance. Keep small GEM files in memory
 //! 
-//! let experiment = new_from_files(df1_path.to_string(), df2_path.to_string(), false);
+//! let analysis = Analysis::new_from_files(df1_path.to_string(), df2_path.to_string(), false);
 //! let (result, number_of_elements_evaluated) = analysis.compute(
 //! 	CorrelationMethod::Pearson,
 //! 	0.7,
@@ -32,7 +36,7 @@
 //! 	is_all_vs_all,
 //! 	collect_gem_dataset,
 //! 	keep_top_n,
-//! )?;
+//! ).unwrap();
 //! 
 //! println!("Number of elements -> {} of {} combinations evaluated", result.len(), number_of_elements_evaluated);
 //! 
@@ -44,6 +48,10 @@
 //! **With CpG Site IDs**:
 //! 
 //! ```
+//! use ggca::adjustment::AdjustmentMethod;
+//! use ggca::analysis::Analysis;
+//! use ggca::correlation::CorrelationMethod;
+//! 
 //! // Datasets's paths
 //! let df1_path = "mrna.csv";
 //! let df2_path = "methylation_with_cpgs.csv";
@@ -57,7 +65,6 @@
 //! let analysis =
 //! 	Analysis::new_from_files(df1_path.to_string(), df2_path.to_string(), gem_contains_cpg);
 //! 
-//! let now = Instant::now();
 //! let (result, number_of_elements_evaluated) = analysis.compute(
 //! 	CorrelationMethod::Pearson,
 //! 	0.8,
@@ -66,15 +73,12 @@
 //! 	is_all_vs_all,
 //! 	collect_gem_dataset,
 //! 	keep_top_n,
-//! )?;
-//! 
-//! let seconds = now.elapsed().as_secs();
+//! ).unwrap();
 //! 
 //! for cor_p_value in result.iter() {
 //! 	println!("{}", cor_p_value);
 //! }
 //! 
-//! println!("Finished in -> {} seconds", seconds);
 //! println!(
 //! 	"Number of elements -> {} of {} combinations evaluated",
 //! 	result.len(),
@@ -113,8 +117,8 @@ create_exception!(ggca, GGCADiffSamples, pyo3::exceptions::PyException);
 #[pyfunction]
 fn correlate(
     py: Python,
-    file_1_path: String,
-    file_2_path: String,
+    gene_file_path: String,
+    gem_file_path: String,
     correlation_method: i32,
     correlation_threshold: f64,
     sort_buf_size: usize,
@@ -125,7 +129,7 @@ fn correlate(
     keep_top_n: Option<usize>,
 ) -> PyResult<(VecOfResults, usize)> {
     py.allow_threads(|| {
-        let experiment = Analysis::new_from_files(file_1_path, file_2_path, gem_contains_cpg);
+        let experiment = Analysis::new_from_files(gene_file_path, gem_file_path, gem_contains_cpg);
         let correlation_method = match correlation_method {
             1 => CorrelationMethod::Spearman,
             2 => CorrelationMethod::Kendall,

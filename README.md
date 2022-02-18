@@ -58,9 +58,13 @@ for combination in result_combinations:
 ### Rust
 
 1. Add crate to `Cargo.toml`: `ggca = "0.4.0"`
-1. Create an experiment and run it:
+1. Create an analysis and run it:
 
 ```rust
+use ggca::adjustment::AdjustmentMethod;
+use ggca::analysis::Analysis;
+use ggca::correlation::CorrelationMethod;
+
 // File's paths
 let df1_path = "mrna.csv";
 let df2_path = "mirna.csv";
@@ -71,7 +75,7 @@ let is_all_vs_all = true;
 let keep_top_n = Some(10); // Keeps the top 10 of correlation (sorting by abs values)
 let collect_gem_dataset = None; // Better performance. Keep small GEM files in memory
 
-let experiment = new_from_files(df1_path.to_string(), df2_path.to_string(), false);
+let analysis = Analysis::new_from_files(df1_path.to_string(), df2_path.to_string(), false);
 let (result, number_of_elements_evaluated) = analysis.compute(
 	CorrelationMethod::Pearson,
 	0.7,

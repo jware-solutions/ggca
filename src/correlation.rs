@@ -15,19 +15,27 @@ use std::{
     io::{Read, Write},
 };
 
+/// Represents an correlation analysis result. Includes Gene, GEM, CpG Site ID (if specified) correlation statistic, 
+/// p-value and adjusted p-value.
 #[pyclass(module = "ggca")]
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct CorResult {
+    /// Gene name
     #[pyo3(get, set)]
     pub gene: String,
+    /// Gene Expression Modulator (GEM) name
     #[pyo3(get, set)]
     pub gem: String,
     #[pyo3(get, set)]
+    /// CpG Site ID
     pub cpg_site_id: Option<String>,
+    /// Correlation statistic (Pearson, Spearman or Kendall, as selected)
     #[pyo3(get, set)]
     pub correlation: Option<f64>,
+    /// P-value
     #[pyo3(get, set)]
     pub p_value: Option<f64>,
+    /// Adjusted p-value (Benjamini-Hochberg, Benjamini-Yekutieli or Bonferroni, as selected)
     #[pyo3(get, set)]
     pub adjusted_p_value: Option<f64>,
 }
