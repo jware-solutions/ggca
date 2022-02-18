@@ -1,32 +1,32 @@
 //! # Gene GEM Correlation Analysis (GGCA)
-//! 
+//!
 //! Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets. It also supports [CpG Site IDs][cpg-site].
-//! 
+//!
 //! ## Installation
-//! 
-//! 1. Install [GSL][gsl] >= 2.6 in your system. 
+//!
+//! 1. Install [GSL][gsl] >= 2.6 in your system.
 //! 1. Add crate to `Cargo.toml`: `ggca = "0.4.0"`
-//! 
-//! 
+//!
+//!
 //! ## Usage
-//! 
+//!
 //! **Basic example**:
-//! 
+//!
 //! ```
 //! use ggca::adjustment::AdjustmentMethod;
 //! use ggca::analysis::Analysis;
 //! use ggca::correlation::CorrelationMethod;
-//! 
+//!
 //! // File's paths
 //! let df1_path = "mrna.csv";
 //! let df2_path = "mirna.csv";
-//! 
+//!
 //! // Some parameters
 //! let gem_contains_cpg = false;
 //! let is_all_vs_all = true;
 //! let keep_top_n = Some(10); // Keeps the top 10 of correlation (sorting by abs values)
 //! let collect_gem_dataset = None; // Better performance. Keep small GEM files in memory
-//! 
+//!
 //! let analysis = Analysis::new_from_files(df1_path.to_string(), df2_path.to_string(), false);
 //! let (result, number_of_elements_evaluated) = analysis.compute(
 //! 	CorrelationMethod::Pearson,
@@ -37,34 +37,34 @@
 //! 	collect_gem_dataset,
 //! 	keep_top_n,
 //! ).unwrap();
-//! 
+//!
 //! println!("Number of elements -> {} of {} combinations evaluated", result.len(), number_of_elements_evaluated);
-//! 
+//!
 //! for cor_p_value in result.iter() {
 //! 	println!("{}", cor_p_value);
 //! }
 //! ```
-//! 
+//!
 //! **With CpG Site IDs**:
-//! 
+//!
 //! ```
 //! use ggca::adjustment::AdjustmentMethod;
 //! use ggca::analysis::Analysis;
 //! use ggca::correlation::CorrelationMethod;
-//! 
+//!
 //! // Datasets's paths
 //! let df1_path = "mrna.csv";
 //! let df2_path = "methylation_with_cpgs.csv";
-//! 
+//!
 //! // Some parameters
 //! let gem_contains_cpg = true; // Second column in df2 contains CpG Site IDs
 //! let is_all_vs_all = false; // Only matching genes
 //! let keep_top_n = Some(10); // Keeps the top 10 of correlation (sorting by abs values)
 //! let collect_gem_dataset = None;
-//! 
+//!
 //! let analysis =
 //! 	Analysis::new_from_files(df1_path.to_string(), df2_path.to_string(), gem_contains_cpg);
-//! 
+//!
 //! let (result, number_of_elements_evaluated) = analysis.compute(
 //! 	CorrelationMethod::Pearson,
 //! 	0.8,
@@ -74,45 +74,49 @@
 //! 	collect_gem_dataset,
 //! 	keep_top_n,
 //! ).unwrap();
-//! 
+//!
 //! for cor_p_value in result.iter() {
 //! 	println!("{}", cor_p_value);
 //! }
-//! 
+//!
 //! println!(
 //! 	"Number of elements -> {} of {} combinations evaluated",
 //! 	result.len(),
 //! 	number_of_elements_evaluated
 //! );
 //! ```
-//! 
-//! 
+//!
+//!
 //! ## More examples
-//! 
+//!
 //! You can check the [examples][examples-folder] folder for more types of analysis!
-//! 
-//! 
+//!
+//!
 //! [gsl]: https://www.gnu.org/software/gsl/
 //! [cpg-site]: https://en.wikipedia.org/wiki/CpG_site
 //! [examples-folder]: https://github.com/jware-solutions/ggca/tree/master/examples
 
-
-pub mod analysis;
 pub mod adjustment;
+pub mod analysis;
 pub mod correlation;
 pub mod dataset;
 pub mod types;
 
 use adjustment::AdjustmentMethod;
-use analysis::Analysis;
+use analysis::{Analysis, GGCADiffSamples, GGCADiffSamplesLength};
 use correlation::{CorResult, CorrelationMethod};
 use dataset::GGCAError;
 use pyo3::wrap_pyfunction;
 use pyo3::{create_exception, prelude::*};
 use types::VecOfResults;
 
-create_exception!(ggca, GGCADiffSamplesLength, pyo3::exceptions::PyException);
-create_exception!(ggca, GGCADiffSamples, pyo3::exceptions::PyException);
+// Errors
+create_exception!(
+    ggca,
+    InvalidCorrelationMethod,
+    pyo3::exceptions::PyException
+);
+create_exception!(ggca, InvalidAdjustmentMethod, pyo3::exceptions::PyException);
 
 #[pyfunction]
 fn correlate(
@@ -131,16 +135,26 @@ fn correlate(
     py.allow_threads(|| {
         let experiment = Analysis::new_from_files(gene_file_path, gem_file_path, gem_contains_cpg);
         let correlation_method = match correlation_method {
-            1 => CorrelationMethod::Spearman,
-            2 => CorrelationMethod::Kendall,
-            _ => CorrelationMethod::Pearson,
-        };
+            1 => Ok(CorrelationMethod::Spearman),
+            2 => Ok(CorrelationMethod::Kendall),
+            3 => Ok(CorrelationMethod::Pearson),
+            selected @ _ => Err(
+                InvalidCorrelationMethod::new_err(
+                    format!("Wrong correlation method ({selected}). Only values 1 (Spearman), 2 (Kendall) or 3 (Pearson) are valid")
+                )
+            )
+        }?;
 
         let adjustment_method = match adjustment_method {
-            1 => AdjustmentMethod::BenjaminiHochberg,
-            2 => AdjustmentMethod::BenjaminiYekutieli,
-            _ => AdjustmentMethod::Bonferroni,
-        };
+            1 => Ok(AdjustmentMethod::BenjaminiHochberg),
+            2 => Ok(AdjustmentMethod::BenjaminiYekutieli),
+            3 => Ok(AdjustmentMethod::Bonferroni),
+            selected @ _ => Err(
+                InvalidAdjustmentMethod::new_err(
+                    format!("Wrong adjustment method ({selected}). Only values 1 (Benjamini-Hochberg), 2 (Benjamini-Yekutieli) or 3 (Bonferroni) are valid")
+                )
+            )
+        }?;
 
         experiment.compute(
             correlation_method,
@@ -165,5 +179,13 @@ fn ggca(py: Python, m: &PyModule) -> PyResult<()> {
         py.get_type::<GGCADiffSamplesLength>(),
     )?;
     m.add("GGCADiffSamples", py.get_type::<GGCADiffSamples>())?;
+    m.add(
+        "InvalidCorrelationMethod",
+        py.get_type::<InvalidCorrelationMethod>(),
+    )?;
+    m.add(
+        "InvalidAdjustmentMethod",
+        py.get_type::<InvalidAdjustmentMethod>(),
+    )?;
     Ok(())
 }

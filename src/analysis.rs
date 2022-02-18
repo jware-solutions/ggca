@@ -6,11 +6,13 @@ use crate::{
     adjustment::{get_adjustment_method, AdjustmentMethod},
     correlation::{get_correlation_method, CorResult, Correlation, CorrelationMethod},
 };
-use crate::{GGCADiffSamples, GGCADiffSamplesLength};
 use extsort::ExternalSorter;
 use itertools::Itertools; // Do not remove, it's used for tee()
-use pyo3::prelude::*;
+use pyo3::{create_exception, prelude::*};
 use std::fs;
+
+create_exception!(ggca, GGCADiffSamplesLength, pyo3::exceptions::PyException);
+create_exception!(ggca, GGCADiffSamples, pyo3::exceptions::PyException);
 
 fn get_correlation_result(
     tuple_1: TupleExpressionValues,

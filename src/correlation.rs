@@ -15,7 +15,7 @@ use std::{
     io::{Read, Write},
 };
 
-/// Represents an correlation analysis result. Includes Gene, GEM, CpG Site ID (if specified) correlation statistic, 
+/// Represents an correlation analysis result. Includes Gene, GEM, CpG Site ID (if specified) correlation statistic,
 /// p-value and adjusted p-value.
 #[pyclass(module = "ggca")]
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]

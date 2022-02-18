@@ -1,6 +1,4 @@
-# ggca.so must be in the same folder
 import ggca
-from enum import Enum
 
 """Possible Correlation methods"""
 SPEARMAN = 1
@@ -40,6 +38,11 @@ def main():
 		print('Raised GGCADiffSamplesLength:', ex)
 	except ggca.GGCADiffSamples as ex:
 		print('Raised GGCADiffSamples:', ex)
+	except ggca.InvalidCorrelationMethod as ex:
+		print('Raised InvalidCorrelationMethod:', ex)
+	except ggca.InvalidAdjustmentMethod as ex:
+		print('Raised InvalidAdjustmentMethod:', ex)
+
 
 if __name__ == '__main__':
 	main()
