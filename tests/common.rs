@@ -42,8 +42,8 @@ pub fn assert_eq_results(result: &ResultTupleSimple, expected: &ResultTupleSimpl
         assert_eq!(a.0, b.0);
         assert_eq!(a.1, b.1);
         assert_relative_eq!(a.2, b.2, epsilon = 1e-7); // R cor.test only provides a 6/7 digit precision for correlation values
-        assert_relative_eq!(a.3, b.3, epsilon = 1e-9);
-        assert_relative_eq!(a.4, b.4, epsilon = 1e-9);
+        assert_relative_eq!(a.3, b.3, epsilon = 1e-9); // P-value
+        assert_relative_eq!(a.4, b.4, epsilon = 1e-9); // Adjusted p-value
     });
 }
 
@@ -52,6 +52,31 @@ pub fn get_sorted_by_correlation_abs_desc(result: &ResultTupleSimple) -> ResultT
     result
         .iter()
         .sorted_by(|a, b| b.2.abs().partial_cmp(&a.2.abs()).unwrap())
+        .cloned()
+        .collect()
+}
+
+/// Sorts a vec of tuples by abs correlation descending and then by gene and GEM
+pub fn get_sorted_by_correlation_abs_desc_gene_gem(
+    result: &ResultTupleSimple,
+) -> ResultTupleSimple {
+    result
+        .iter()
+        .sorted_by(|a, b| {
+            // If it's the same correlation value, sorts by gene and GEM
+            if b.2 == a.2 {
+                // If it's the same gene, sorts by GEM (ascending)
+                if a.0 == b.0 {
+                    a.1.partial_cmp(&b.1).unwrap()
+                } else {
+                    // Sorts by gene (ascending)
+                    a.0.partial_cmp(&b.0).unwrap()
+                }
+            } else {
+                // Sorts by correlation (descending)
+                b.2.abs().partial_cmp(&a.2.abs()).unwrap()
+            }
+        })
         .cloned()
         .collect()
 }

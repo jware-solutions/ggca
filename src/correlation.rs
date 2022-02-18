@@ -3,11 +3,13 @@ use extsort::Sortable;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
 use pyo3::ToPyObject;
+use rgsl::randist::gaussian::gaussian_P;
 use rgsl::{
     randist::t_distribution::{tdist_P, tdist_Q},
     statistics::{correlation, spearman},
 };
 use serde_derive::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::{
     fmt::Debug,
     io::{Read, Write},
@@ -218,44 +220,26 @@ impl Correlation for Spearman {
     }
 }
 
-struct Kendall {
-    // n: usize
-}
+struct Kendall {}
 
 impl Kendall {
     fn new(_n: usize) -> Self {
-        // Kendall { n }
         Kendall {}
     }
 }
 
 impl Correlation for Kendall {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
-        // Hotfix until https://github.com/zolkko/kendalls/issues/2 is solved
-        let gil = Python::acquire_gil();
-        let py = gil.python();
-        let scipy = PyModule::import(py, "scipy.stats").expect("Scipy was not found");
-        scipy
-            .call1("kendalltau", (x.to_vec(), y.to_vec()))
-            .unwrap()
-            .extract()
-            .unwrap()
-
-        // let tau = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
-        //     a.partial_cmp(&b).unwrap_or(Ordering::Greater)
-        // }).unwrap();
+        let (tau, significance) = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
+            a.partial_cmp(b).unwrap_or(Ordering::Greater)
+        })
+        .unwrap();
 
         // P-value (two-sided)
+        let cdf = gaussian_P(-significance.abs(), 1.0);
+        let p_value = 2.0 * cdf;
 
-        // FIXME: significance value seems to be wrong. Issue: https://github.com/zolkko/kendalls/issues/2
-        // let significance = kendalls::significance(tau, x.len()); // If this line is correct, use self.n instead of x.len()
-        // let significance: f64 = -2.09764910069;
-        // let cdf = gaussian_P(-significance.abs(), 1.0);
-        // let p_value = 2.0 * cdf;
-
-        // println!("Tau -> {} | Z -> {} P-value -> {}", tau, significance, p_value);
-
-        // (tau, p_value)
+        (tau, p_value)
     }
 }
 

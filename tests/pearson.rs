@@ -36,7 +36,7 @@ lazy_static! {
         ("CDO1".to_string(), "hsa-miR-194*".to_string(), -0.6589037, 5.455469E-11),
     ];
 
-    /// Benjamini-Hochberg adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an ascending order)
+    /// Benjamini-Hochberg adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an descending order)
     static ref BH_ADJUSTMENT: Vec<f64> = vec![
         8.414626E-05,
         7.533308E-05,
@@ -52,7 +52,7 @@ lazy_static! {
         8.042913E-06,
     ];
 
-    /// Bonferroni adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an ascending order)
+    /// Bonferroni adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an descending order)
     static ref BONFERRONI_ADJUSTMENT: Vec<f64> = vec![
         0.001045492,
         0.0008286639,
@@ -68,7 +68,7 @@ lazy_static! {
         9.787111E-06,
     ];
 
-    /// Benjamini-Yekutieli adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an ascending order)
+    /// Benjamini-Yekutieli adjustment for EXPECTED_PEARSON_BH (respecting the order by p-value in an descending order)
     static ref BY_ADJUSTMENT: Vec<f64> = vec![
         0.0010665195,
         0.000954816,

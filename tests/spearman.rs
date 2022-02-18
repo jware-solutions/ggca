@@ -39,7 +39,7 @@ lazy_static! {
         ("GREM2".to_string(), "hsa-miR-1".to_string(), 0.6914202, 2.421017E-12),
     ];
 
-    /// Benjamini-Hochberg adjustment for EXPECTED_SPEARMAN_BH (respecting the order by p-value in an ascending order)
+    /// Benjamini-Hochberg adjustment for EXPECTED_SPEARMAN_BH (respecting the order by p-value in an descending order)
     static ref BH_ADJUSTMENT: Vec<f64> = vec![
         6.871468E-05,
         6.871468E-05,
@@ -58,7 +58,7 @@ lazy_static! {
         4.343305E-07,
     ];
 
-    /// Bonferroni adjustment for EXPECTED_SPEARMAN_BH (respecting the order by p-value in an ascending order)
+    /// Bonferroni adjustment for EXPECTED_SPEARMAN_BH (respecting the order by p-value in an descending order)
     static ref BONFERRONI_ADJUSTMENT: Vec<f64> = vec![
         0.00103072,
         0.001025968,
@@ -77,7 +77,7 @@ lazy_static! {
         4.343305E-07
     ];
 
-    /// Benjamini-Yekutieli adjustment for EXPECTED_SPEARMAN_BH (respecting the order by p-value in an ascending order)
+    /// Benjamini-Yekutieli adjustment for EXPECTED_SPEARMAN_BH (respecting the order by p-value in an descending order)
     static ref BY_ADJUSTMENT: Vec<f64> = vec![
         0.0008709305,
         0.0008709305,
