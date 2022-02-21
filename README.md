@@ -2,6 +2,18 @@
 
 Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets. It also supports [CpG Site IDs][cpg-site].
 
+**IMPORTANT**: GGCA is the heart of a platform called Multiomix. On the official website you will be able to use this library in a fast and agile way through a friendly graphical interface (along with many extra features!). Go to https://multiomix.org/ to get started now!
+
+
+## Index
+
+- [Requirements](#requirements)
+- [Usage](#usage)
+	- [Python](#python)
+	- [Rust](#rust)
+- [Contributing](#contributing)
+- [Considerations](#considerations)
+
 
 ## Requirements
 
@@ -69,6 +81,7 @@ except ggca.GGCAError as ex:
 	print('Raised GGCAError:', ex)
 ```
 
+
 ### Rust
 
 1. Add crate to `Cargo.toml`: `ggca = "0.4.0"`
@@ -112,10 +125,10 @@ for cor_p_value in result.iter() {
 
 All kind of help is welcome! Feel free o submit an issue or a PR. There are some TODOs which are listed below:
 
-- [ ] Add Rust documentation
 - [ ] Make Rust enums accessible from Python
-- [ ] Add tests
-- [ ] Add MyPy support
+- [X] Add Rust documentation
+- [X] Add tests
+- [X] Add MyPy support
 
 
 ### Developing
@@ -144,6 +157,24 @@ All the correlation, p-values and adjusted p-values were taken from [cor.test][r
 Data in `small_files` folder was retrieved with random sampling from the *Colorectal Adenocarcinoma (TCGA, Nature 2012)* dataset. This dataset can be downloaded from [cBioPortal datasets page][cbioportal-datasets-page] or [this direct link][colorectal-dataset].
 
 All the correlations results were compared directly with R-Multiomics output (old version of [multiomix.org][multiomix] only available for R lang).
+
+
+## Considerations
+
+If you use any part of our code, or the tool itself is useful for your research, please consider citing:
+
+```
+@article{camele2022multiomix,
+  title={Multiomix: a cloud-based platform to infer cancer genomic and epigenomic events associated with gene expression modulation},
+  author={Camele, Genaro and Menazzi, Sebastian and Chanfreau, Hern{\'a}n and Marraco, Agustin and Hasperu{\'e}, Waldo and Butti, Matias D and Abba, Martin C},
+  journal={Bioinformatics},
+  volume={38},
+  number={3},
+  pages={866--868},
+  year={2022},
+  publisher={Oxford University Press}
+}
+```
 
 
 [cpg-site]: https://en.wikipedia.org/wiki/CpG_site
