@@ -185,21 +185,20 @@ impl Analysis {
             number_of_evaluated_combinations as f64,
         );
         let adjusted = ranked.map(|(rank, mut cor_and_p_value)| {
-            let p_value = cor_and_p_value.p_value;
-            // Unwrap is safe as None p-values will be filtered before (they are None
-            // when is_all_vs_all == false)
-            let q_value = adjustment_struct.adjust(p_value.unwrap(), rank);
-
+            // Unwrap is safe as None values were filtered before (they are None when is_all_vs_all is false)
+            let p_value = cor_and_p_value.p_value.unwrap();
+            let q_value = adjustment_struct.adjust(p_value, rank);
             cor_and_p_value.adjusted_p_value = Some(q_value);
+
             cor_and_p_value
         });
 
         // Filtering. Improves performance adjusting only the final combinations, note that
         // ranking is preserved
         let filtered = adjusted.filter(|cor_and_p_value| {
-            // Unwrap is safe as None correlation values will be filtered before (they are None
+            // Unwrap is safe as None correlation values were filtered before (they are None
             // when is_all_vs_all == false)
-            cor_and_p_value.correlation.unwrap().abs() >= self.correlation_threshold
+            cor_and_p_value.abs_correlation() >= self.correlation_threshold
         });
 
         // Keep top N if needed
@@ -209,13 +208,11 @@ impl Analysis {
                 let sorter = ExternalSorter::new().with_segment_size(self.sort_buf_size as usize);
                 let sorted_cor_desc =
                     sorter.sort_by(filtered, |combination_1, combination_2| {
-                        // Unwrap is safe as Correlation values are all valid in this stage of algorithm (None
+                        // Unwrap is safe as correlation values are all valid in this stage of algorithm (None
                         // were discarded in all vs all checking stage)
                         combination_2
-                            .correlation
-                            .unwrap()
-                            .abs()
-                            .partial_cmp(&combination_1.correlation.unwrap().abs())
+                            .abs_correlation()
+                            .partial_cmp(&combination_1.abs_correlation())
                             .unwrap()
                     })?;
                 Box::new(sorted_cor_desc.take(top_n))
