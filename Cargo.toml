@@ -1,8 +1,13 @@
 [package]
-authors = ["JWare <jware.organization@gmail.com>"]
+authors = ["JWare Solutions <jware.organization@gmail.com>"]
+description = "Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets"
+documentation = "https://docs.rs/ggca/"
 edition = "2018"
+keywords = ["mRNA", "expression", "modulation", "correlation", "p-value"]
+license = "GPL"
 name = "ggca"
 version = "0.4.0"
+repository = "https://github.com/jware-solutions/ggca"
 readme = "README.md"
 
 [lib]
@@ -24,6 +29,11 @@ serde_derive = {version = "1.0.14", default-features = false}
 
 [dev-dependencies]
 approx = "0.5.0"
+criterion = "0.3.5"
+
+[[bench]]
+name = "benchmarks"
+harness = false
 
 [features]
 # This prevent errors with get/set macro

@@ -82,6 +82,18 @@ pub enum AdjustmentMethod {
     Bonferroni = 3,
 }
 
+impl std::fmt::Display for AdjustmentMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let description = match &self {
+            AdjustmentMethod::BenjaminiHochberg => "Benjamini-Hochberg",
+            AdjustmentMethod::BenjaminiYekutieli => "Benjamini-Yekutieli",
+            AdjustmentMethod::Bonferroni => "Bonferroni",
+        };
+
+        write!(f, "{description}")
+    }
+}
+
 pub fn get_adjustment_method(
     adjustment_method: &AdjustmentMethod,
     total_number_of_elements: f64,

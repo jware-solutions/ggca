@@ -258,6 +258,18 @@ pub enum CorrelationMethod {
     Pearson = 3,
 }
 
+impl std::fmt::Display for CorrelationMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let description = match &self {
+            CorrelationMethod::Spearman => "Spearman",
+            CorrelationMethod::Kendall => "Kendall",
+            CorrelationMethod::Pearson => "Pearson",
+        };
+
+        write!(f, "{description}")
+    }
+}
+
 pub fn get_correlation_method(
     correlation_method: &CorrelationMethod,
     number_of_samples: usize,
