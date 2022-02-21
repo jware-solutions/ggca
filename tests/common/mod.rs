@@ -10,7 +10,7 @@ use itertools::Itertools;
 /// Vec of tuples with Gene, GEM, correlation, p-value and adjusted p-value
 pub type ResultTupleSimple = Vec<(String, String, f64, f64, f64)>;
 
-/// Vec of tuples with Gene, GEM, correlation, p-value
+/// Vec of tuples with Gene, GEM, correlation and p-value
 pub type ResultTupleWithoutAdj = Vec<(String, String, f64, f64)>;
 
 /// Generates a Vec of tuples with all the data without the CpG Sited ID
@@ -44,8 +44,8 @@ pub fn merge_with_adjustment(
 /// Asserts equality between 2 vec of tuples. Checks with a zip to prevent issues with floating point equality
 pub fn assert_eq_results(result: &ResultTupleSimple, expected: &ResultTupleSimple) {
     result.iter().zip(expected.iter()).for_each(|(a, b)| {
-        assert_eq!(a.0, b.0);
-        assert_eq!(a.1, b.1);
+        assert_eq!(a.0, b.0); // mRNA
+        assert_eq!(a.1, b.1); // GEM
         assert_relative_eq!(a.2, b.2, epsilon = 1e-7); // R cor.test only provides a 6/7 digit precision for correlation values
         assert_relative_eq!(a.3, b.3, epsilon = 1e-9); // P-value
         assert_relative_eq!(a.4, b.4, epsilon = 1e-9); // Adjusted p-value
@@ -86,7 +86,7 @@ pub fn get_sorted_by_correlation_abs_desc_gene_gem(
         .collect()
 }
 
-/// Computes an analysis with specific parameters
+/// Computes an analysis with specific parameters (without CpG Site IDs)
 pub fn compute(
     gene_file_path: String,
     gem_file_path: String,
@@ -98,11 +98,10 @@ pub fn compute(
     collect_gem_dataset: Option<bool>,
     keep_top_n: Option<usize>,
 ) -> (VecOfResults, usize) {
-    let gem_contains_cpg = false;
     Analysis {
         gene_file_path,
         gem_file_path,
-        gem_contains_cpg,
+        gem_contains_cpg: false,
         correlation_method,
         correlation_threshold,
         sort_buf_size,

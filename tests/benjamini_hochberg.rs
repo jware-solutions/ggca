@@ -1,4 +1,4 @@
-mod common_adjustment;
+pub mod common_adjustment;
 
 use crate::common_adjustment::test_adjustment_bh_or_by;
 use ggca::adjustment::AdjustmentMethod;

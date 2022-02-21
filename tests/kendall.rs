@@ -1,4 +1,4 @@
-mod common;
+pub mod common;
 
 use crate::common::{
     assert_eq_results, compute, get_sorted_by_correlation_abs_desc_gene_gem,

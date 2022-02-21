@@ -55,7 +55,7 @@ impl LazyMatrix {
     fn lazy_matrix(path: &str, with_cpg_site_id: bool) -> PyResult<LazyMatrixInner> {
         // Build the CSV reader and iterate over each record.
         let reader = reader_from_path(path)?;
-        let lazy_matrix = reader.into_records().map(move |record_result| {
+        let res_lazy_matrix = reader.into_records().map(move |record_result| {
             // Gets current record and its line
             let record = record_result.unwrap();
             let line = record.position().unwrap().line();
@@ -75,21 +75,23 @@ impl LazyMatrix {
                 .map(|(column_idx, cell)| {
                     // + 1 or +2 as it doesn't take index (and CpG Site ID) column/s into account
                     fast_float::parse(cell)
-                    // Avoids using expect() to prevent calling format()
-                    .unwrap_or_else(|_| panic!(
-                        "Line {} column {} has an invalid value -> '{}'.
+                        // Avoids using expect() to prevent calling format()
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Line {} column {} has an invalid value -> '{}'.
                         \nFirst column must be the Gene/GEM and the rest the samples",
-                        line,
-                        column_idx + (if with_cpg_site_id { 2 } else { 1 }),
-                        cell
-                    ))
+                                line,
+                                column_idx + (if with_cpg_site_id { 2 } else { 1 }),
+                                cell
+                            )
+                        })
                 })
                 .collect::<Vec<f64>>();
 
             (gene_or_gem, cpg_site_id, values)
         });
 
-        Ok(Box::new(lazy_matrix))
+        Ok(Box::new(res_lazy_matrix))
     }
 }
 
