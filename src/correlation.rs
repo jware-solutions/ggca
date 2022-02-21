@@ -251,7 +251,7 @@ impl Correlation for Kendall {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum CorrelationMethod {
     Spearman = 1,
     Kendall = 2,
@@ -259,7 +259,7 @@ pub enum CorrelationMethod {
 }
 
 pub fn get_correlation_method(
-    correlation_method: CorrelationMethod,
+    correlation_method: &CorrelationMethod,
     number_of_samples: usize,
 ) -> Box<dyn Correlation> {
     match correlation_method {

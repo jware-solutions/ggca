@@ -1,5 +1,10 @@
 use approx::assert_relative_eq;
-use ggca::correlation::CorResult;
+use ggca::{
+    adjustment::AdjustmentMethod,
+    analysis::Analysis,
+    correlation::{CorResult, CorrelationMethod},
+    types::VecOfResults,
+};
 use itertools::Itertools;
 
 /// Vec of tuples with Gene, GEM, correlation, p-value and adjusted p-value
@@ -79,4 +84,33 @@ pub fn get_sorted_by_correlation_abs_desc_gene_gem(
         })
         .cloned()
         .collect()
+}
+
+/// Computes an analysis with specific parameters
+pub fn compute(
+    gene_file_path: String,
+    gem_file_path: String,
+    correlation_method: CorrelationMethod,
+    correlation_threshold: f64,
+    sort_buf_size: usize,
+    adjustment_method: AdjustmentMethod,
+    is_all_vs_all: bool,
+    collect_gem_dataset: Option<bool>,
+    keep_top_n: Option<usize>,
+) -> (VecOfResults, usize) {
+    let gem_contains_cpg = false;
+    Analysis {
+        gene_file_path,
+        gem_file_path,
+        gem_contains_cpg,
+        correlation_method,
+        correlation_threshold,
+        sort_buf_size,
+        adjustment_method,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    }
+    .compute()
+    .unwrap()
 }

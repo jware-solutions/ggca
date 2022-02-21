@@ -1,10 +1,10 @@
 mod common;
 
 use crate::common::{
-    assert_eq_results, get_sorted_by_correlation_abs_desc, get_tuples_from_result,
+    assert_eq_results, compute, get_sorted_by_correlation_abs_desc, get_tuples_from_result,
     merge_with_adjustment, ResultTupleSimple, ResultTupleWithoutAdj,
 };
-use ggca::{adjustment::AdjustmentMethod, analysis::Analysis, correlation::CorrelationMethod};
+use ggca::{adjustment::AdjustmentMethod, correlation::CorrelationMethod};
 use lazy_static::lazy_static;
 
 // Datasets's paths
@@ -15,11 +15,6 @@ const DF2_PATH: &str = "tests/small_files/miRNA.csv"; // miRNA = 299 rows
 const TOTAL_COMBINATIONS_EVALUATED: usize = 179400;
 
 lazy_static! {
-    static ref ANALYSIS: Analysis = {
-        let gem_contains_cpg = false;
-        Analysis::new_from_files(DF1_PATH.to_string(), DF2_PATH.to_string(), gem_contains_cpg)
-    };
-
     /// Expected correlations for Pearson method, sorted by p-value descending
     static ref EXPECTED_PEARSON: ResultTupleWithoutAdj = vec![
         ("UBE2L6".to_string(), "hsa-miR-552".to_string(), -0.6013218, 5.827716E-09),
@@ -96,23 +91,23 @@ lazy_static! {
 
 #[test]
 /// Tests Pearson correlation with Benjamini-Hochberg adjustment. No threshold set (uses all the rows)
-fn test_pearson_and_bh_all() {
+fn pearson_and_bh_all() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = ANALYSIS
-        .compute(
-            CorrelationMethod::Pearson,
-            0.0, // No threshold
-            2_000_000,
-            AdjustmentMethod::BenjaminiHochberg,
-            is_all_vs_all,
-            collect_gem_dataset,
-            keep_top_n,
-        )
-        .unwrap();
+    let (result, number_of_elements_evaluated) = compute(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Pearson,
+        0.0, // No threshold
+        2_000_000,
+        AdjustmentMethod::BenjaminiHochberg,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
 
     // No threshold, no rows filtered
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);
@@ -121,23 +116,23 @@ fn test_pearson_and_bh_all() {
 
 #[test]
 /// Tests Pearson correlation with Benjamini-Hochberg adjustment. Correlation threshold set to 0.6
-fn test_pearson_and_bh_cor_0_6() {
+fn pearson_and_bh_cor_0_6() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = ANALYSIS
-        .compute(
-            CorrelationMethod::Pearson,
-            0.6,
-            2_000_000,
-            AdjustmentMethod::BenjaminiHochberg,
-            is_all_vs_all,
-            collect_gem_dataset,
-            keep_top_n,
-        )
-        .unwrap();
+    let (result, number_of_elements_evaluated) = compute(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Pearson,
+        0.6,
+        2_000_000,
+        AdjustmentMethod::BenjaminiHochberg,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
     assert_eq!(result.len(), EXPECTED_PEARSON_BH.len());
@@ -148,23 +143,23 @@ fn test_pearson_and_bh_cor_0_6() {
 
 #[test]
 /// Tests Pearson correlation with Benjamini-Hochberg adjustment. No threshold, Keeps top 10 results by correlation
-fn test_pearson_and_bh_top_10() {
+fn pearson_and_bh_top_10() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = Some(10); // Keep top 10
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = ANALYSIS
-        .compute(
-            CorrelationMethod::Pearson,
-            0.0, // No threshold
-            2_000_000,
-            AdjustmentMethod::BenjaminiHochberg,
-            is_all_vs_all,
-            collect_gem_dataset,
-            keep_top_n,
-        )
-        .unwrap();
+    let (result, number_of_elements_evaluated) = compute(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Pearson,
+        0.0, // No threshold
+        2_000_000,
+        AdjustmentMethod::BenjaminiHochberg,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
 
     // No threshold, no rows filtered
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
@@ -182,23 +177,23 @@ fn test_pearson_and_bh_top_10() {
 
 #[test]
 /// Tests Pearson correlation with Benjamini-Hochberg adjustment. Correlation threshold set to 1 (no results)
-fn test_pearson_and_bh_cor_1() {
+fn pearson_and_bh_cor_1() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = ANALYSIS
-        .compute(
-            CorrelationMethod::Pearson,
-            1.0,
-            2_000_000,
-            AdjustmentMethod::BenjaminiHochberg,
-            is_all_vs_all,
-            collect_gem_dataset,
-            keep_top_n,
-        )
-        .unwrap();
+    let (result, number_of_elements_evaluated) = compute(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Pearson,
+        1.0,
+        2_000_000,
+        AdjustmentMethod::BenjaminiHochberg,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
     assert_eq!(result.len(), 0);
@@ -206,23 +201,23 @@ fn test_pearson_and_bh_cor_1() {
 
 #[test]
 /// Tests Pearson correlation with Benjamini-Hochberg adjustment. Only matching genes/GEMs
-fn test_pearson_and_bh_only_matching() {
+fn pearson_and_bh_only_matching() {
     // Some parameters
     let is_all_vs_all = false; // Keeps only matching genes/GEMs
     let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = ANALYSIS
-        .compute(
-            CorrelationMethod::Pearson,
-            1.0,
-            2_000_000,
-            AdjustmentMethod::BenjaminiHochberg,
-            is_all_vs_all,
-            collect_gem_dataset,
-            keep_top_n,
-        )
-        .unwrap();
+    let (result, number_of_elements_evaluated) = compute(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Pearson,
+        1.0,
+        2_000_000,
+        AdjustmentMethod::BenjaminiHochberg,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
 
     // As there is no matching genes/GEMs no combinations are evaluated
     assert_eq!(number_of_elements_evaluated, 0);
@@ -231,23 +226,23 @@ fn test_pearson_and_bh_only_matching() {
 
 #[test]
 /// Tests Pearson correlation with Bonferroni adjustment. Correlation threshold set to 0.6
-fn test_pearson_and_bonferroni_cor_0_6() {
+fn pearson_and_bonferroni_cor_0_6() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = ANALYSIS
-        .compute(
-            CorrelationMethod::Pearson,
-            0.6,
-            2_000_000,
-            AdjustmentMethod::Bonferroni,
-            is_all_vs_all,
-            collect_gem_dataset,
-            keep_top_n,
-        )
-        .unwrap();
+    let (result, number_of_elements_evaluated) = compute(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Pearson,
+        0.6,
+        2_000_000,
+        AdjustmentMethod::Bonferroni,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
 
     // The adjustment method should not modify the number of resulting combinations
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);
@@ -264,23 +259,23 @@ fn test_pearson_and_bonferroni_cor_0_6() {
 
 #[test]
 /// Tests Pearson correlation with Benjamini-Yekutieli adjustment. Correlation threshold set to 0.6
-fn test_pearson_and_by_cor_0_6() {
+fn pearson_and_by_cor_0_6() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = ANALYSIS
-        .compute(
-            CorrelationMethod::Pearson,
-            0.6,
-            2_000_000,
-            AdjustmentMethod::BenjaminiYekutieli,
-            is_all_vs_all,
-            collect_gem_dataset,
-            keep_top_n,
-        )
-        .unwrap();
+    let (result, number_of_elements_evaluated) = compute(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Pearson,
+        0.6,
+        2_000_000,
+        AdjustmentMethod::BenjaminiYekutieli,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
 
     // The adjustment method should not modify the number of resulting combinations
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);

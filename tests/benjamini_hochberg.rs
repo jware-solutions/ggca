@@ -4,7 +4,7 @@ use crate::common_adjustment::test_adjustment_bh_or_by;
 use ggca::adjustment::AdjustmentMethod;
 
 #[test]
-fn test_benjamini_hochberg_1() {
+fn benjamini_hochberg_1() {
     let x = vec![
         0.492476438,
         0.581083727,
@@ -126,11 +126,11 @@ fn test_benjamini_hochberg_1() {
         0.89801933, 0.72198368,
     ];
 
-    test_adjustment_bh_or_by(x, expected, AdjustmentMethod::BenjaminiHochberg);
+    test_adjustment_bh_or_by(x, expected, &AdjustmentMethod::BenjaminiHochberg);
 }
 
 #[test]
-fn test_benjamini_hochberg_2() {
+fn benjamini_hochberg_2() {
     let x = vec![
         5.39198144708e-77,
         1.18917839281e-160,
@@ -147,11 +147,11 @@ fn test_benjamini_hochberg_2() {
         4.46628757e-114,
     ];
 
-    test_adjustment_bh_or_by(x, expected, AdjustmentMethod::BenjaminiHochberg);
+    test_adjustment_bh_or_by(x, expected, &AdjustmentMethod::BenjaminiHochberg);
 }
 
 #[test]
-fn test_benjamini_hochberg_3() {
+fn benjamini_hochberg_3() {
     let x = vec![
         5.455469E-11,
         8.966458E-11,
@@ -182,5 +182,5 @@ fn test_benjamini_hochberg_3() {
         5.82771600e-09,
     ];
 
-    test_adjustment_bh_or_by(x, expected, AdjustmentMethod::BenjaminiHochberg);
+    test_adjustment_bh_or_by(x, expected, &AdjustmentMethod::BenjaminiHochberg);
 }

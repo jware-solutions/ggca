@@ -5,7 +5,8 @@ fn test_adjustment_bonferroni(x: Vec<f64>, expected: Vec<f64>) {
     // Ranked. Funciona OK
     let ranked = x.iter().enumerate();
 
-    let mut adjustment_struct = get_adjustment_method(AdjustmentMethod::Bonferroni, x.len() as f64);
+    let mut adjustment_struct =
+        get_adjustment_method(&AdjustmentMethod::Bonferroni, x.len() as f64);
     let adjusted = ranked.map(|(rank, p_value)| {
         let q_value = adjustment_struct.adjust(*p_value, rank);
 
@@ -20,7 +21,7 @@ fn test_adjustment_bonferroni(x: Vec<f64>, expected: Vec<f64>) {
 }
 
 #[test]
-fn test_bonferroni_1() {
+fn bonferroni_1() {
     let x = vec![
         0.492476438,
         0.581083727,
@@ -137,7 +138,7 @@ fn test_bonferroni_1() {
 }
 
 #[test]
-fn test_bonferroni_2() {
+fn bonferroni_2() {
     let x = vec![
         5.39198144708e-77,
         1.18917839281e-160,
@@ -158,7 +159,7 @@ fn test_bonferroni_2() {
 }
 
 #[test]
-fn test_bonferroni_3() {
+fn bonferroni_3() {
     let x = vec![
         5.455469E-11,
         8.966458E-11,

@@ -5,7 +5,7 @@ use ggca::adjustment::{get_adjustment_method, AdjustmentMethod};
 
 /// Computes Benjamini-Hochberg and Benjamini-Yekutieli adjustment.
 /// To test Bonferroni use `test_adjustment_bh_or_by()` instead as it does not need to sort by p-value
-pub fn test_adjustment_bh_or_by(x: Vec<f64>, expected: Vec<f64>, method: AdjustmentMethod) {
+pub fn test_adjustment_bh_or_by(x: Vec<f64>, expected: Vec<f64>, method: &AdjustmentMethod) {
     // To preserve
     let mut ranked = x.iter().enumerate().collect::<Vec<(usize, &f64)>>();
 

@@ -6,8 +6,8 @@ use std::time::Instant;
 
 fn main() -> PyResult<()> {
     // Datasets's paths
-    let df1_path = "mrna.csv";
-    let df2_path = "mirna.csv";
+    let gene_file_path = "mrna.csv".to_string();
+    let gem_file_path = "mirna.csv".to_string();
 
     // Some parameters
     let gem_contains_cpg = false;
@@ -15,19 +15,23 @@ fn main() -> PyResult<()> {
     let keep_top_n = Some(10); // Keeps the top 10 of correlation (sorting by abs values)
     let collect_gem_dataset = None; // Better performance. Keep small GEM files in memory
 
-    let analysis =
-        Analysis::new_from_files(df1_path.to_string(), df2_path.to_string(), gem_contains_cpg);
-
     let now = Instant::now();
-    let (result, number_of_elements_evaluated) = analysis.compute(
-        CorrelationMethod::Pearson,
-        0.7,
-        2_000_000,
-        AdjustmentMethod::BenjaminiHochberg,
+
+    // Creates and run an analysis
+    let analysis = Analysis {
+        gene_file_path,
+        gem_file_path,
+        gem_contains_cpg,
+        correlation_method: CorrelationMethod::Pearson,
+        correlation_threshold: 0.7,
+        sort_buf_size: 2_000_000,
+        adjustment_method: AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
         keep_top_n,
-    )?;
+    };
+
+    let (result, number_of_elements_evaluated) = analysis.compute()?;
 
     let seconds = now.elapsed().as_secs();
 

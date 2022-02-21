@@ -74,32 +74,29 @@ fn cartesian_equal_genes(
 /// Represents a correlation analysis
 #[derive(Clone, Debug)]
 pub struct Analysis {
-    /// Gene file path
-    gene_file_path: String,
+    /// mRNA file path
+    pub gene_file_path: String,
     /// Gene Expression Modulator (GEM) file path
-    gem_file_path: String,
+    pub gem_file_path: String,
     /// Indicates if the second column of GEM dataset contains CpG Site IDs
-    gem_contains_cpg: bool,
+    pub gem_contains_cpg: bool,
+    /// Correlation method (Pearson, Spearman or Kendall)
+    pub correlation_method: CorrelationMethod,
+    /// The threshold to discard all results whose correlation statistic values are below this value
+    pub correlation_threshold: f64,
+    /// Number of elements to hold in memory during external sorting. Bigger values gives better performance but uses more memory
+    pub sort_buf_size: usize,
+    /// P-values adjustment method (Benjamini-Hochberg, Benjamini-Yekutieli, Bonferroni or None)
+    pub adjustment_method: AdjustmentMethod,
+    /// True if all Genes must be evaluated with all GEMs. Otherwise only matching Genes/GEM will be evaluated (useful for CNA or Methylation analysis)
+    pub is_all_vs_all: bool,
+    /// True to make the GEM dataset available in memory. This has a HUGE impact in analysis performance. Specify a boolean value to force or use None to allocate in memory automatically when GEM dataset size is small (<= 100MB)
+    pub collect_gem_dataset: Option<bool>,
+    /// Specify a number of results to keep or None to return all the resulting combinations
+    pub keep_top_n: Option<usize>,
 }
 
 impl Analysis {
-    /// Creates an instance of Analysis from both datasets path
-    /// # Args
-    /// * `gene_file_path`: Path of mRNA dataset
-    /// * `gem_file_path`: Path of GEM (miRNA, CNA, Methylation) dataset
-    /// * `gem_contains_cpg`: True if second column of GEM dataset must be considered as a CpG Site ID. False for normal datasets
-    pub fn new_from_files(
-        gene_file_path: String,
-        gem_file_path: String,
-        gem_contains_cpg: bool,
-    ) -> Analysis {
-        Analysis {
-            gene_file_path,
-            gem_file_path,
-            gem_contains_cpg,
-        }
-    }
-
     /// Generic cartesian product for Iterator and collected LazyMatrix
     /// See [this question](https://users.rust-lang.org/t/use-iterator-or-collected-vec/55324/2)
     fn cartesian_product<X: Clone, Y, J: IntoIterator<Item = Y>>(
@@ -120,18 +117,12 @@ impl Analysis {
         dataset_2: Dataset,
         len_m2: usize,
         number_of_samples: usize,
-        correlation_method: CorrelationMethod,
-        correlation_threshold: f64,
-        sort_buf_size: usize,
-        adjustment_method: AdjustmentMethod,
-        is_all_vs_all: bool,
-        collect_gem_dataset: bool,
-        keep_top_n: Option<usize>,
+        should_collect_gem_dataset: bool,
     ) -> PyResult<(VecOfResults, usize)> {
         // Cartesian product computing correlation and p-value (two-sided)
         let correlation_method_struct =
-            get_correlation_method(correlation_method, number_of_samples);
-        let correlation_function = if is_all_vs_all {
+            get_correlation_method(&self.correlation_method, number_of_samples);
+        let correlation_function = if self.is_all_vs_all {
             cartesian_all_vs_all
         } else {
             cartesian_equal_genes
@@ -141,7 +132,7 @@ impl Analysis {
         // https://users.rust-lang.org/t/iterators-over-csv-files-with-iproduct/51947
         let cross_product: Box<
             dyn Iterator<Item = (TupleExpressionValues, TupleExpressionValues)>,
-        > = if collect_gem_dataset {
+        > = if should_collect_gem_dataset {
             Box::new(self.cartesian_product(
                 dataset_1.lazy_matrix,
                 dataset_2.lazy_matrix.collect::<CollectedMatrix>(),
@@ -159,7 +150,7 @@ impl Analysis {
         let (filtered, number_of_evaluated_combinations): (
             Box<dyn Iterator<Item = CorResult>>,
             usize,
-        ) = if is_all_vs_all {
+        ) = if self.is_all_vs_all {
             (Box::new(correlations_and_p_values), len_m1 * len_m2)
         } else {
             let (res, count_aux) = correlations_and_p_values
@@ -169,12 +160,12 @@ impl Analysis {
         };
 
         // Sorting (for future adjustment). Note: consumes iterator
-        let sorted: Box<dyn Iterator<Item = CorResult>> = match adjustment_method {
+        let sorted: Box<dyn Iterator<Item = CorResult>> = match self.adjustment_method {
             AdjustmentMethod::Bonferroni => Box::new(filtered),
             _ => {
                 // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value (descending order) to
                 // make the adjustment
-                let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
+                let sorter = ExternalSorter::new().with_segment_size(self.sort_buf_size as usize);
                 Box::new(sorter.sort_by(filtered, |result_1, result_2| {
                     result_2
                         .p_value
@@ -189,8 +180,10 @@ impl Analysis {
         let ranked = sorted.enumerate();
 
         // Adjustment
-        let mut adjustment_struct =
-            get_adjustment_method(adjustment_method, number_of_evaluated_combinations as f64);
+        let mut adjustment_struct = get_adjustment_method(
+            &self.adjustment_method,
+            number_of_evaluated_combinations as f64,
+        );
         let adjusted = ranked.map(|(rank, mut cor_and_p_value)| {
             let p_value = cor_and_p_value.p_value;
             // Unwrap is safe as None p-values will be filtered before (they are None
@@ -206,14 +199,14 @@ impl Analysis {
         let filtered = adjusted.filter(|cor_and_p_value| {
             // Unwrap is safe as None correlation values will be filtered before (they are None
             // when is_all_vs_all == false)
-            cor_and_p_value.correlation.unwrap().abs() >= correlation_threshold
+            cor_and_p_value.correlation.unwrap().abs() >= self.correlation_threshold
         });
 
         // Keep top N if needed
-        let limited: Box<dyn Iterator<Item = CorResult>> = match keep_top_n {
+        let limited: Box<dyn Iterator<Item = CorResult>> = match self.keep_top_n {
             Some(top_n) => {
                 // Sorts by correlation in descending order
-                let sorter = ExternalSorter::new().with_segment_size(sort_buf_size as usize);
+                let sorter = ExternalSorter::new().with_segment_size(self.sort_buf_size as usize);
                 let sorted_cor_desc =
                     sorter.sort_by(filtered, |combination_1, combination_2| {
                         // Unwrap is safe as Correlation values are all valid in this stage of algorithm (None
@@ -300,31 +293,14 @@ impl Analysis {
     }
 
     /// Computes analysis and returns a vec of CorResult and the number of combinations evaluated
-    /// # Args
-    /// * `correlation_method`: Correlation method (Pearson, Spearman or Kendall)
-    /// * `correlation_threshold`: The threshold to discard all results whose correlation statistic values are below this value
-    /// * `sort_buf_size`: Number of elements to hold in memory during external sorting. Bigger values gives better performance but uses more memory
-    /// * `adjustment_method`: P-values adjustment method (Benjamini-Hochberg, Benjamini-Yekutieli, Bonferroni or None)
-    /// * `is_all_vs_all`: True if all Genes must be evaluated with all GEMs. Otherwise only matching Genes/GEM will be evaluated (useful for CNA or Methylation analysis)
-    /// * `collect_gem_dataset`: True to make the GEM dataset available in memory. This has a HUGE impact in analysis performance. Specify a boolean value to force or use None to allocate in memory automatically when GEM dataset size is small (<= 100MB)
-    /// * `keep_top_n`: Specify a number of results to keep or None to return all the resulting combinations
-    pub fn compute(
-        &self,
-        correlation_method: CorrelationMethod,
-        correlation_threshold: f64,
-        sort_buf_size: usize,
-        adjustment_method: AdjustmentMethod,
-        is_all_vs_all: bool,
-        collect_gem_dataset: Option<bool>,
-        keep_top_n: Option<usize>,
-    ) -> PyResult<(VecOfResults, usize)> {
+    pub fn compute(&self) -> PyResult<(VecOfResults, usize)> {
         let (m1, len_m1, m2, len_m2, number_of_samples) = self.datasets_and_shapes(
             self.gene_file_path.as_str(),
             self.gem_file_path.as_str(),
             self.gem_contains_cpg,
         )?;
 
-        let should_collect_gem_dataset = match collect_gem_dataset {
+        let should_collect_gem_dataset = match self.collect_gem_dataset {
             Some(collect_gem_dataset_value) => collect_gem_dataset_value,
             None => {
                 // If None, it's defined automatically from the size of the dataset:
@@ -341,13 +317,7 @@ impl Analysis {
             m2,
             len_m2,
             number_of_samples,
-            correlation_method,
-            correlation_threshold,
-            sort_buf_size,
-            adjustment_method,
-            is_all_vs_all,
             should_collect_gem_dataset,
-            keep_top_n,
         )
     }
 }

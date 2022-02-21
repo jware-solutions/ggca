@@ -4,7 +4,7 @@ use crate::common_adjustment::test_adjustment_bh_or_by;
 use ggca::adjustment::AdjustmentMethod;
 
 #[test]
-fn test_benjamini_yekutieli_1() {
+fn benjamini_yekutieli_1() {
     let x = vec![
         0.492476438,
         0.581083727,
@@ -117,11 +117,11 @@ fn test_benjamini_yekutieli_1() {
         1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
     ];
 
-    test_adjustment_bh_or_by(x, expected, AdjustmentMethod::BenjaminiYekutieli);
+    test_adjustment_bh_or_by(x, expected, &AdjustmentMethod::BenjaminiYekutieli);
 }
 
 #[test]
-fn test_benjamini_yekutieli_2() {
+fn benjamini_yekutieli_2() {
     let x = vec![
         5.39198144708e-77,
         1.18917839281e-160,
@@ -138,11 +138,11 @@ fn test_benjamini_yekutieli_2() {
         1.01980233e-113,
     ];
 
-    test_adjustment_bh_or_by(x, expected, AdjustmentMethod::BenjaminiYekutieli);
+    test_adjustment_bh_or_by(x, expected, &AdjustmentMethod::BenjaminiYekutieli);
 }
 
 #[test]
-fn test_benjamini_yekutieli_3() {
+fn benjamini_yekutieli_3() {
     let x = vec![
         5.455469E-11,
         8.966458E-11,
@@ -173,5 +173,5 @@ fn test_benjamini_yekutieli_3() {
         1.80846305e-08,
     ];
 
-    test_adjustment_bh_or_by(x, expected, AdjustmentMethod::BenjaminiYekutieli);
+    test_adjustment_bh_or_by(x, expected, &AdjustmentMethod::BenjaminiYekutieli);
 }
