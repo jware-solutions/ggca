@@ -159,6 +159,11 @@ Data in `small_files` folder was retrieved with random sampling from the *Colore
 All the correlations results were compared directly with R-Multiomics output (old version of [multiomix.org][multiomix] only available for R lang).
 
 
+### Performance
+
+We use [criterion.rs][criterion] to perform benchmarks. In case you have made a contribution you can check that no regression was added to the project. Just run `cargo bench --no-default-features` before and after your changes to perform a statistical analysis of performance.
+
+
 ## Considerations
 
 If you use any part of our code, or the tool itself is useful for your research, please consider citing:
@@ -186,3 +191,4 @@ If you use any part of our code, or the tool itself is useful for your research,
 [cbioportal-datasets-page]: https://www.cbioportal.org/datasets
 [colorectal-dataset]: https://cbioportal-datahub.s3.amazonaws.com/coadread_tcga_pub.tar.gz
 [multiomix]: https://www.multiomix.org
+[criterion]: https://github.com/bheisler/criterion.rs
