@@ -126,6 +126,7 @@ for cor_p_value in result.iter() {
 All kind of help is welcome! Feel free o submit an issue or a PR. There are some TODOs which are listed below:
 
 - [ ] Make Rust enums accessible from Python
+- [ ] Add support for Windows OS
 - [X] Add Rust documentation
 - [X] Add tests
 - [X] Add MyPy support
