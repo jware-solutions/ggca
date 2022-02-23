@@ -11,7 +11,6 @@ const GENE_METHYLATION_FILE_PATH: &str = "tests/medium_files/methylation_gene.cs
 const METHYLATION_FILE_PATH: &str = "tests/medium_files/methylation_gem.csv"; // miRNA = 1505 rows
 
 /// Tries all the combinations of correlation methods, threshold, GEM collection and p-value adjustment methods
-/// TODO: add some tests with keep_top_n parameter to check performance of needed correlation sorting
 /// # Args
 /// * `gene_file_path`: Genes file path
 /// * `gem_file_path`: GEM file path
@@ -23,7 +22,7 @@ fn bench_group(
     gem_contains_cpg: bool,
     group: &mut BenchmarkGroup<WallTime>,
 ) {
-    // Correlation task are heavy, so 
+    // Correlation task are heavy, so
     group.sample_size(10);
 
     // For every correlation method
@@ -40,35 +39,56 @@ fn bench_group(
                 AdjustmentMethod::BenjaminiYekutieli,
                 AdjustmentMethod::Bonferroni,
             ] {
-                // Test with GEM file in disk and RAM
-                for collect_gem_in_ram in [false, true] {
-                    let collect_desc = if collect_gem_in_ram { "RAM" } else { "disk" };
-
-                    group.bench_with_input(
-                        BenchmarkId::from_parameter(
-							format!(
-								"{} (threshold = {:.1}) using {} adjustment. GEM in {}",
-								&cor_method, threshold, &adjustment, collect_desc
-							),
-						),
-						&(&cor_method, threshold, &adjustment, collect_gem_in_ram),
-						|b, (correlation_method, threshold, adjustment_method, collect_gem_in_ram)| {
-							b.iter(|| {
-                                Analysis {
-                                    gene_file_path: gene_file_path.to_string(),
-                                    gem_file_path: gem_file_path.to_string(),
-                                    gem_contains_cpg,
-                                    correlation_method: (*correlation_method).clone(),
-                                    correlation_threshold: *threshold,
-                                    sort_buf_size: 2_000_000,
-                                    adjustment_method: (*adjustment_method).clone(),
-                                    is_all_vs_all: true,
-                                    collect_gem_dataset: Some(*collect_gem_in_ram),
-                                    keep_top_n: None,
-                                }.compute().unwrap();
-							})
-						},
-					);
+                // Tests performance of correlation sorting to keep best combinations
+                for keep_top_cors in [None, Some(10)] {
+                    // Tests with GEM file in disk and RAM
+                    for collect_gem_in_ram in [false, true] {
+                        let collect_desc = if collect_gem_in_ram { "RAM" } else { "disk" };
+                        let keep_top_desc = if let Some(top) = keep_top_cors {
+                            format!("Top {}", top)
+                        } else {
+                            "Keep all".to_string()
+                        };
+                        group.bench_with_input(
+                            BenchmarkId::from_parameter(format!(
+                                // "{} (threshold = {:.1} | {}) using {} adjustment. GEM in {}",
+                                "{} | {} (t = {:.1} | {}) on {}",
+                                &cor_method, &adjustment, threshold, keep_top_desc, collect_desc
+                            )),
+                            &(
+                                &cor_method,
+                                threshold,
+                                &adjustment,
+                                collect_gem_in_ram,
+                                keep_top_cors,
+                            ),
+                            |b,
+                             (
+                                correlation_method,
+                                threshold,
+                                adjustment_method,
+                                collect_gem_in_ram,
+                                keep_top_n,
+                            )| {
+                                b.iter(|| {
+                                    Analysis {
+                                        gene_file_path: gene_file_path.to_string(),
+                                        gem_file_path: gem_file_path.to_string(),
+                                        gem_contains_cpg,
+                                        correlation_method: (*correlation_method).clone(),
+                                        correlation_threshold: *threshold,
+                                        sort_buf_size: 2_000_000,
+                                        adjustment_method: (*adjustment_method).clone(),
+                                        is_all_vs_all: true,
+                                        collect_gem_dataset: Some(*collect_gem_in_ram),
+                                        keep_top_n: *keep_top_n,
+                                    }
+                                    .compute()
+                                    .unwrap();
+                                })
+                            },
+                        );
+                    }
                 }
             }
         }
