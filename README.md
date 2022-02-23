@@ -6,6 +6,8 @@ Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-va
 
 **IMPORTANT**: GGCA is the heart of a platform called Multiomix. On the official website you will be able to use this library in a fast and agile way through a friendly graphical interface (along with many extra features!). Go to https://multiomix.org/ to get started now!
 
+[Python PyPi][pypi-site] | [Rust Crate][crate-site]
+
 
 ## Index
 
@@ -194,6 +196,8 @@ If you use any part of our code, or the tool itself is useful for your research,
 ```
 
 
+[pypi-site]: https://pypi.org/project/ggca/
+[crate-site]: https://crates.io/crates/ggca
 [cpg-site]: https://en.wikipedia.org/wiki/CpG_site
 [gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
