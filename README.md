@@ -120,6 +120,14 @@ for cor_p_value in result.iter() {
 }
 ```
 
+Note that [env_logger][env-logger] crate is used to provide some warning in case some mRNA/GEM combinations produce NaN values (for instance, because the input array has 0 std). In that case, you can add RUST_LOG=warn to your command to produce warnings in the stderr. E.g:
+
+`RUST_LOG=warn cargo test --no-default-features --tests`
+
+or 
+
+`RUST_LOG=warn cargo run --example basic --no-default-features`
+
 
 ## Contributing
 
@@ -192,4 +200,5 @@ If you use any part of our code, or the tool itself is useful for your research,
 [cbioportal-datasets-page]: https://www.cbioportal.org/datasets
 [colorectal-dataset]: https://cbioportal-datahub.s3.amazonaws.com/coadread_tcga_pub.tar.gz
 [multiomix]: https://www.multiomix.org
+[env-logger]: https://docs.rs/env_logger/latest/env_logger/
 [criterion]: https://github.com/bheisler/criterion.rs
