@@ -1,5 +1,7 @@
 # Gene GEM Correlation Analysis (GGCA)
 
+[![CI](https://github.com/jware-solutions/ggca/actions/workflows/ci.yml/badge.svg)](https://github.com/jware-solutions/ggca/actions/workflows/ci.yml)
+
 Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets. It also supports [CpG Site IDs][cpg-site].
 
 **IMPORTANT**: GGCA is the heart of a platform called Multiomix. On the official website you will be able to use this library in a fast and agile way through a friendly graphical interface (along with many extra features!). Go to https://multiomix.org/ to get started now!
