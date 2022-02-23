@@ -1,4 +1,3 @@
-// TODO: add tests for filtering NaNs values when std is 0 (correlations and p-values = NaNs)
 extern crate extsort;
 use crate::dataset::{Dataset, GGCAError};
 use crate::types::{CollectedMatrix, TupleExpressionValues, VecOfResults};
@@ -7,7 +6,9 @@ use crate::{
     correlation::{get_correlation_method, CorResult, Correlation, CorrelationMethod},
 };
 use extsort::ExternalSorter;
-use itertools::Itertools; // Do not remove, it's used for tee()
+use itertools::Itertools;
+use log::warn;
+// Do not remove, it's used for tee()
 use pyo3::{create_exception, prelude::*};
 use std::fs;
 
@@ -71,6 +72,40 @@ fn cartesian_equal_genes(
     }
 }
 
+/// Independent struct to log warnings in case some combinations are filtered
+struct ConstantInputError {
+    number_of_cor_filtered: usize,
+}
+
+impl ConstantInputError {
+    fn new() -> Self {
+        let _ = env_logger::try_init(); // To log warnings
+        ConstantInputError {
+            number_of_cor_filtered: 0,
+        }
+    }
+
+    /// Checks if p-value is NaN
+    fn p_value_is_nan(&mut self, cor_result: &CorResult) -> bool {
+        if cor_result.p_value.unwrap().is_nan() {
+            self.number_of_cor_filtered += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Logs a warning indicating (if needed) that some correlations were filtered
+    fn warn_if_needed(&mut self) {
+        if self.number_of_cor_filtered > 0 {
+            warn!(
+                "{} combinations produced NaNs values as an input array is constant. The correlation coefficient is not defined so that/those combination/s were be filtered.",
+                self.number_of_cor_filtered
+            );
+        }
+    }
+}
+
 /// Represents a correlation analysis
 #[derive(Clone, Debug)]
 pub struct Analysis {
@@ -113,9 +148,7 @@ impl Analysis {
     fn run_analysis(
         &self,
         dataset_1: Dataset,
-        len_m1: usize,
         dataset_2: Dataset,
-        len_m2: usize,
         number_of_samples: usize,
         should_collect_gem_dataset: bool,
     ) -> PyResult<(VecOfResults, usize)> {
@@ -145,19 +178,22 @@ impl Analysis {
             correlation_function(tuple_1, tuple_2, &*correlation_method_struct)
         });
 
-        // Filtering by equal genes (if needed)
-        // Counts element for future p-value adjustment
-        let (filtered, number_of_evaluated_combinations): (
-            Box<dyn Iterator<Item = CorResult>>,
-            usize,
-        ) = if self.is_all_vs_all {
-            (Box::new(correlations_and_p_values), len_m1 * len_m2)
+        // Filtering by equal genes (if needed) and NaN values
+        let mut nan_errors = ConstantInputError::new();
+        let filtered: Box<dyn Iterator<Item = CorResult>> = if self.is_all_vs_all {
+            let filtered_nan = correlations_and_p_values
+                .filter(|cor_result| !nan_errors.p_value_is_nan(cor_result));
+            Box::new(filtered_nan)
         } else {
-            let (res, count_aux) = correlations_and_p_values
-                .filter(|cor_result| cor_result.gene == cor_result.gem)
-                .tee();
-            (Box::new(res), count_aux.count())
+            let filtered_nan = correlations_and_p_values.filter(|cor_result| {
+                cor_result.gene == cor_result.gem && !nan_errors.p_value_is_nan(cor_result)
+            });
+            Box::new(filtered_nan)
         };
+
+        // Counts element for future p-value adjustment
+        let (filtered, filtered_aux) = filtered.tee();
+        let number_of_evaluated_combinations = filtered_aux.count();
 
         // Sorting (for future adjustment). Note: consumes iterator
         let sorted: Box<dyn Iterator<Item = CorResult>> = match self.adjustment_method {
@@ -220,19 +256,21 @@ impl Analysis {
             None => Box::new(filtered),
         };
 
-        Ok((
-            limited.collect::<VecOfResults>(),
-            number_of_evaluated_combinations,
-        ))
+        let result = limited.collect::<VecOfResults>();
+
+        // Generates warnings if needed
+        nan_errors.warn_if_needed();
+
+        Ok((result, number_of_evaluated_combinations))
     }
 
-    /// Gets DataFrame and its shape (to compute, for example, the number of evaluated combinations)
+    /// Gets DataFrame and the total number of samples
     fn datasets_and_shapes(
         &self,
         df1_path: &str,
         df2_path: &str,
         gem_contains_cpg: bool,
-    ) -> PyResult<(Dataset, usize, Dataset, usize, usize)> {
+    ) -> PyResult<(Dataset, Dataset, usize)> {
         let dataset_1 = Dataset::new(df1_path, false)?;
         let mut dataset_1_headers = dataset_1.headers.clone();
         let dataset_1_aux = Dataset::new(df1_path, false)?;
@@ -246,11 +284,8 @@ impl Analysis {
             Some(row) => {
                 let number_of_samples = row.2.len();
 
-                let len_m1 = d1_lazy_matrix_aux.count() + 1; // Plus discarded element by next()
-
                 let matrix_2 = Dataset::new(df2_path, gem_contains_cpg)?;
                 let m2_headers = matrix_2.headers.clone();
-                let m2_aux = Dataset::new(df2_path, gem_contains_cpg)?;
 
                 // In case of an extra column for CpG Site IDs it shouldn't threw an error
                 // Index column will be remove after
@@ -280,9 +315,7 @@ impl Analysis {
 							"Samples in both datasets are different but they have the same length, maybe they are in different order"
 						))
                     } else {
-                        let len_m2 = m2_aux.lazy_matrix.count();
-
-                        Ok((dataset_1, len_m1, matrix_2, len_m2, number_of_samples))
+                        Ok((dataset_1, matrix_2, number_of_samples))
                     }
                 }
             }
@@ -291,7 +324,7 @@ impl Analysis {
 
     /// Computes analysis and returns a vec of CorResult and the number of combinations evaluated
     pub fn compute(&self) -> PyResult<(VecOfResults, usize)> {
-        let (m1, len_m1, m2, len_m2, number_of_samples) = self.datasets_and_shapes(
+        let (m1, m2, number_of_samples) = self.datasets_and_shapes(
             self.gene_file_path.as_str(),
             self.gem_file_path.as_str(),
             self.gem_contains_cpg,
@@ -308,13 +341,6 @@ impl Analysis {
             }
         };
 
-        self.run_analysis(
-            m1,
-            len_m1,
-            m2,
-            len_m2,
-            number_of_samples,
-            should_collect_gem_dataset,
-        )
+        self.run_analysis(m1, m2, number_of_samples, should_collect_gem_dataset)
     }
 }
