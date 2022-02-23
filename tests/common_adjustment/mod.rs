@@ -1,8 +1,6 @@
 use approx::assert_relative_eq;
 use ggca::adjustment::{get_adjustment_method, AdjustmentMethod};
 
-// TODO: add as constants the tested p-values vectors
-
 /// Computes Benjamini-Hochberg and Benjamini-Yekutieli adjustment.
 /// To test Bonferroni use `test_adjustment_bh_or_by()` instead as it does not need to sort by p-value
 pub fn test_adjustment_bh_or_by(x: Vec<f64>, expected: Vec<f64>, method: &AdjustmentMethod) {
