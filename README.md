@@ -133,6 +133,7 @@ or
 
 All kind of help is welcome! Feel free o submit an issue or a PR. There are some TODOs which are listed below:
 
+- [ ] Parallelize iterators to improve performance
 - [ ] Make Rust enums accessible from Python
 - [ ] Add support for Windows OS
 - [X] Add Rust documentation
