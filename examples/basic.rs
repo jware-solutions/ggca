@@ -31,7 +31,8 @@ fn main() -> PyResult<()> {
         keep_top_n,
     };
 
-    let (result, number_of_elements_evaluated) = analysis.compute()?;
+    let (result, _total_combinations_count, number_of_combinations_evaluated) =
+        analysis.compute()?;
 
     let seconds = now.elapsed().as_secs();
 
@@ -43,7 +44,7 @@ fn main() -> PyResult<()> {
     println!(
         "Number of elements -> {} of {} combinations evaluated",
         result.len(),
-        number_of_elements_evaluated
+        number_of_combinations_evaluated
     );
 
     Ok(())

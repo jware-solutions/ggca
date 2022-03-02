@@ -113,8 +113,7 @@ fn compute_with_cpg(
     adjustment_method: AdjustmentMethod,
     is_all_vs_all: bool,
     collect_gem_dataset: Option<bool>,
-    keep_top_n: Option<usize>,
-) -> (VecOfResults, usize) {
+) -> (VecOfResults, usize, usize) {
     Analysis {
         gene_file_path,
         gem_file_path,
@@ -125,7 +124,7 @@ fn compute_with_cpg(
         adjustment_method,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
+        keep_top_n: None,
     }
     .compute()
     .unwrap()
@@ -136,10 +135,9 @@ fn compute_with_cpg(
 fn cpg_site_ids_pearson_and_bh_all() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute_with_cpg(
+    let (result, _total_row_count, number_of_elements_evaluated) = compute_with_cpg(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Pearson,
@@ -148,7 +146,6 @@ fn cpg_site_ids_pearson_and_bh_all() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // No threshold, no rows filtered
@@ -161,10 +158,9 @@ fn cpg_site_ids_pearson_and_bh_all() {
 fn cpg_site_ids_pearson_and_bh_cor_0_6() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute_with_cpg(
+    let (result, _total_row_count, number_of_elements_evaluated) = compute_with_cpg(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Pearson,
@@ -173,7 +169,6 @@ fn cpg_site_ids_pearson_and_bh_cor_0_6() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
@@ -188,10 +183,9 @@ fn cpg_site_ids_pearson_and_bh_cor_0_6() {
 fn cpg_site_ids_pearson_and_bh_only_matching() {
     // Some parameters
     let is_all_vs_all = false; // Keeps only matching genes/GEMs
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute_with_cpg(
+    let (result, _total_row_count, number_of_elements_evaluated) = compute_with_cpg(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Pearson,
@@ -200,7 +194,6 @@ fn cpg_site_ids_pearson_and_bh_only_matching() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     assert_eq!(number_of_elements_evaluated, 1299);

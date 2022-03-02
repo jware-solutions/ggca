@@ -16,7 +16,7 @@ def main():
     gem_file_path = "mirna.csv"
 
     try:
-        (result_combinations, evaluated_combinations) = ggca.correlate(
+        (result_combinations, _total_combinations_count, evaluated_combinations) = ggca.correlate(
             mrna_file_path,
             gem_file_path,
             correlation_method=PEARSON,

@@ -151,7 +151,7 @@ impl Analysis {
         dataset_2: Dataset,
         number_of_samples: usize,
         should_collect_gem_dataset: bool,
-    ) -> PyResult<(VecOfResults, usize)> {
+    ) -> PyResult<(VecOfResults, usize, usize)> {
         // Cartesian product computing correlation and p-value (two-sided)
         let correlation_method_struct =
             get_correlation_method(&self.correlation_method, number_of_samples);
@@ -238,30 +238,41 @@ impl Analysis {
         });
 
         // Keep top N if needed
-        let limited: Box<dyn Iterator<Item = CorResult>> = match self.keep_top_n {
-            Some(top_n) => {
-                // Sorts by correlation in descending order
-                let sorter = ExternalSorter::new().with_segment_size(self.sort_buf_size as usize);
-                let sorted_cor_desc =
-                    sorter.sort_by(filtered, |combination_1, combination_2| {
-                        // Unwrap is safe as correlation values are all valid in this stage of algorithm (None
-                        // were discarded in all vs all checking stage)
-                        combination_2
-                            .abs_correlation()
-                            .partial_cmp(&combination_1.abs_correlation())
-                            .unwrap()
-                    })?;
-                Box::new(sorted_cor_desc.take(top_n))
-            }
-            None => Box::new(filtered),
-        };
+        let (limited, total_combinations_count): (Box<dyn Iterator<Item = CorResult>>, usize) =
+            match self.keep_top_n {
+                Some(top_n) => {
+                    let (filtered, filtered_aux_count) = filtered.tee();
+
+                    // Sorts by correlation in descending order
+                    let sorter =
+                        ExternalSorter::new().with_segment_size(self.sort_buf_size as usize);
+                    let sorted_cor_desc =
+                        sorter.sort_by(filtered, |combination_1, combination_2| {
+                            // Unwrap is safe as correlation values are all valid in this stage of algorithm (None
+                            // were discarded in all vs all checking stage)
+                            combination_2
+                                .abs_correlation()
+                                .partial_cmp(&combination_1.abs_correlation())
+                                .unwrap()
+                        })?;
+                    (
+                        Box::new(sorted_cor_desc.take(top_n)),
+                        filtered_aux_count.count(),
+                    )
+                }
+                None => (Box::new(filtered), number_of_evaluated_combinations),
+            };
 
         let result = limited.collect::<VecOfResults>();
 
         // Generates warnings if needed
         nan_errors.warn_if_needed();
 
-        Ok((result, number_of_evaluated_combinations))
+        Ok((
+            result,
+            total_combinations_count,
+            number_of_evaluated_combinations,
+        ))
     }
 
     /// Gets DataFrame and the total number of samples
@@ -322,8 +333,8 @@ impl Analysis {
         }
     }
 
-    /// Computes analysis and returns a vec of CorResult and the number of combinations evaluated
-    pub fn compute(&self) -> PyResult<(VecOfResults, usize)> {
+    /// Computes analysis and returns a vec of CorResult, the number of combinations before truncating by 'keep_top_n' parameter and the number of combinations evaluated
+    pub fn compute(&self) -> PyResult<(VecOfResults, usize, usize)> {
         let (m1, m2, number_of_samples) = self.datasets_and_shapes(
             self.gene_file_path.as_str(),
             self.gem_file_path.as_str(),

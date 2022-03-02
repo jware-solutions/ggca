@@ -1,8 +1,9 @@
 pub mod common;
 
 use crate::common::{
-    assert_eq_results, compute, get_sorted_by_correlation_abs_desc_gene_gem,
-    get_tuples_from_result, merge_with_adjustment, ResultTupleSimple, ResultTupleWithoutAdj,
+    assert_eq_results, compute_no_truncate, compute_with_top_n,
+    get_sorted_by_correlation_abs_desc_gene_gem, get_tuples_from_result, merge_with_adjustment,
+    ResultTupleSimple, ResultTupleWithoutAdj,
 };
 use ggca::{adjustment::AdjustmentMethod, correlation::CorrelationMethod};
 use lazy_static::lazy_static;
@@ -134,10 +135,9 @@ lazy_static! {
 fn kendall_and_bh_all() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Kendall,
@@ -146,7 +146,6 @@ fn kendall_and_bh_all() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // No threshold, no rows filtered
@@ -159,10 +158,9 @@ fn kendall_and_bh_all() {
 fn kendall_and_bh_cor_0_45() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Kendall,
@@ -171,7 +169,6 @@ fn kendall_and_bh_cor_0_45() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
@@ -183,14 +180,14 @@ fn kendall_and_bh_cor_0_45() {
 }
 
 #[test]
-/// Tests Kendall correlation with Benjamini-Hochberg adjustment. No threshold, Keeps top 10 results by correlation
+/// Tests Kendall correlation with Benjamini-Hochberg adjustment. No threshold, Keeps top 10 combinations by correlation
 fn kendall_and_bh_top_10() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = Some(10); // Keep top 10
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, total_combinations_count, number_of_elements_evaluated) = compute_with_top_n(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Kendall,
@@ -204,6 +201,7 @@ fn kendall_and_bh_top_10() {
 
     // No threshold, no rows filtered
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
+    assert_eq!(total_combinations_count, TOTAL_COMBINATIONS_EVALUATED);
     assert_eq!(result.len(), 10); // Keeps only 10 elements
 
     let collected_as_tuples = get_tuples_from_result(&result);
@@ -219,14 +217,38 @@ fn kendall_and_bh_top_10() {
 }
 
 #[test]
+/// Tests Kendall correlation with Benjamini-Hochberg adjustment. Correlation threshold set to 0.45 keeping only top 10 combinations by correlation
+fn kendall_and_bh_cor_0_45_top_10() {
+    // Some parameters
+    let is_all_vs_all = true;
+    let keep_top_n = Some(10); // Keep top 10
+    let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
+
+    let (result, total_combinations_count, number_of_elements_evaluated) = compute_with_top_n(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Kendall,
+        0.45,
+        2_000_000,
+        AdjustmentMethod::BenjaminiHochberg,
+        is_all_vs_all,
+        collect_gem_dataset,
+        keep_top_n,
+    );
+
+    assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
+    assert_eq!(total_combinations_count, EXPECTED_KENDALL_BH.len()); // If keep_top_n were None this would be the result
+    assert_eq!(result.len(), 10);
+}
+
+#[test]
 /// Tests Kendall correlation with Benjamini-Hochberg adjustment. Correlation threshold set to 1 (no results)
 fn kendall_and_bh_cor_1() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Kendall,
@@ -235,7 +257,6 @@ fn kendall_and_bh_cor_1() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
@@ -247,10 +268,9 @@ fn kendall_and_bh_cor_1() {
 fn kendall_and_bh_only_matching() {
     // Some parameters
     let is_all_vs_all = false; // Keeps only matching genes/GEMs
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Kendall,
@@ -259,7 +279,6 @@ fn kendall_and_bh_only_matching() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // There are three matching Gene/GEM
@@ -272,10 +291,9 @@ fn kendall_and_bh_only_matching() {
 fn kendall_and_bonferroni_cor_0_45() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Kendall,
@@ -284,7 +302,6 @@ fn kendall_and_bonferroni_cor_0_45() {
         AdjustmentMethod::Bonferroni,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // The adjustment method should not modify the number of resulting combinations
@@ -307,10 +324,9 @@ fn kendall_and_bonferroni_cor_0_45() {
 fn kendall_and_by_cor_0_45() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Kendall,
@@ -319,7 +335,6 @@ fn kendall_and_by_cor_0_45() {
         AdjustmentMethod::BenjaminiYekutieli,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // The adjustment method should not modify the number of resulting combinations

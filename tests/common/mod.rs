@@ -86,8 +86,34 @@ pub fn get_sorted_by_correlation_abs_desc_gene_gem(
         .collect()
 }
 
-/// Computes an analysis with specific parameters (without CpG Site IDs)
-pub fn compute(
+/// Computes an analysis with specific parameters, without CpG Site IDs and without truncating (keep_top_n = None)
+pub fn compute_no_truncate(
+    gene_file_path: String,
+    gem_file_path: String,
+    correlation_method: CorrelationMethod,
+    correlation_threshold: f64,
+    sort_buf_size: usize,
+    adjustment_method: AdjustmentMethod,
+    is_all_vs_all: bool,
+    collect_gem_dataset: Option<bool>,
+) -> (VecOfResults, usize) {
+    let (result, _, number_of_combinations_evaluated) = compute_with_top_n(
+        gene_file_path,
+        gem_file_path,
+        correlation_method,
+        correlation_threshold,
+        sort_buf_size,
+        adjustment_method,
+        is_all_vs_all,
+        collect_gem_dataset,
+        None,
+    );
+
+    (result, number_of_combinations_evaluated)
+}
+
+/// Computes an analysis with specific parameters (truncating with the `keep_top_n` parameter), without CpG Site IDs
+pub fn compute_with_top_n(
     gene_file_path: String,
     gem_file_path: String,
     correlation_method: CorrelationMethod,
@@ -97,7 +123,7 @@ pub fn compute(
     is_all_vs_all: bool,
     collect_gem_dataset: Option<bool>,
     keep_top_n: Option<usize>,
-) -> (VecOfResults, usize) {
+) -> (VecOfResults, usize, usize) {
     Analysis {
         gene_file_path,
         gem_file_path,

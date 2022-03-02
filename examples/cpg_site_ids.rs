@@ -31,7 +31,7 @@ fn main() -> PyResult<()> {
         keep_top_n,
     };
 
-    let (result, number_of_elements_evaluated) = analysis.compute()?;
+    let (result, _total_combinations_count, number_of_elements_evaluated) = analysis.compute()?;
 
     let seconds = now.elapsed().as_secs();
 

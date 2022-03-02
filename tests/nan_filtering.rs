@@ -1,6 +1,6 @@
 pub mod common;
 
-use crate::common::compute;
+use crate::common::compute_no_truncate;
 use ggca::{adjustment::AdjustmentMethod, correlation::CorrelationMethod};
 
 // Datasets's paths
@@ -15,10 +15,9 @@ const TOTAL_COMBINATIONS_EVALUATED: usize = 90;
 fn nans_not_panic() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Pearson,
@@ -27,7 +26,6 @@ fn nans_not_panic() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);

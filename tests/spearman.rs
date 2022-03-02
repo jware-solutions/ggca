@@ -1,8 +1,8 @@
 pub mod common;
 
 use crate::common::{
-    assert_eq_results, compute, get_sorted_by_correlation_abs_desc, get_tuples_from_result,
-    merge_with_adjustment, ResultTupleSimple, ResultTupleWithoutAdj,
+    assert_eq_results, compute_no_truncate, compute_with_top_n, get_sorted_by_correlation_abs_desc,
+    get_tuples_from_result, merge_with_adjustment, ResultTupleSimple, ResultTupleWithoutAdj,
 };
 use ggca::{adjustment::AdjustmentMethod, correlation::CorrelationMethod};
 use lazy_static::lazy_static;
@@ -106,10 +106,9 @@ lazy_static! {
 fn spearman_and_bh_all() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Spearman,
@@ -118,7 +117,6 @@ fn spearman_and_bh_all() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // No threshold, no rows filtered
@@ -131,10 +129,36 @@ fn spearman_and_bh_all() {
 fn spearman_and_bh_cor_0_6() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
+        DF1_PATH.to_string(),
+        DF2_PATH.to_string(),
+        CorrelationMethod::Spearman,
+        0.6,
+        2_000_000,
+        AdjustmentMethod::BenjaminiHochberg,
+        is_all_vs_all,
+        collect_gem_dataset,
+    );
+
+    assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
+    assert_eq!(result.len(), EXPECTED_SPEARMAN.len());
+
+    let collected_as_tuples = get_tuples_from_result(&result);
+
+    assert_eq_results(&collected_as_tuples, &EXPECTED_SPEARMAN_BH);
+}
+
+#[test]
+/// Tests Spearman correlation with Benjamini-Hochberg adjustment. Correlation threshold set to 0.6 keeping only top 10 combinations by correlation
+fn spearman_and_bh_cor_0_6_top_10() {
+    // Some parameters
+    let is_all_vs_all = true;
+    let keep_top_n = Some(10); // Keep top 10
+    let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
+
+    let (result, total_combinations_count, number_of_elements_evaluated) = compute_with_top_n(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Spearman,
@@ -147,22 +171,19 @@ fn spearman_and_bh_cor_0_6() {
     );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
-    assert_eq!(result.len(), 15);
-
-    let collected_as_tuples = get_tuples_from_result(&result);
-
-    assert_eq_results(&collected_as_tuples, &EXPECTED_SPEARMAN_BH);
+    assert_eq!(total_combinations_count, EXPECTED_SPEARMAN.len()); // If keep_top_n were None this would be the result
+    assert_eq!(result.len(), 10);
 }
 
 #[test]
-/// Tests Spearman correlation with Benjamini-Hochberg adjustment. No threshold, Keeps top 10 results by correlation
+/// Tests Spearman correlation with Benjamini-Hochberg adjustment. No threshold, Keeps top 10 combinations by correlation
 fn spearman_and_bh_top_10() {
     // Some parameters
     let is_all_vs_all = true;
     let keep_top_n = Some(10); // Keep top 10
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, total_combinations_count, number_of_elements_evaluated) = compute_with_top_n(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Spearman,
@@ -176,6 +197,7 @@ fn spearman_and_bh_top_10() {
 
     // No threshold, no rows filtered
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
+    assert_eq!(total_combinations_count, TOTAL_COMBINATIONS_EVALUATED);
     assert_eq!(result.len(), 10); // Keeps only 10 elements
 
     let collected_as_tuples = get_tuples_from_result(&result);
@@ -192,10 +214,9 @@ fn spearman_and_bh_top_10() {
 fn spearman_and_bh_cor_1() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Spearman,
@@ -204,7 +225,6 @@ fn spearman_and_bh_cor_1() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED); // The number of evaluated elements mustn't be modified
@@ -216,10 +236,9 @@ fn spearman_and_bh_cor_1() {
 fn spearman_and_bh_only_matching() {
     // Some parameters
     let is_all_vs_all = false; // Keeps only matching genes/GEMs
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Spearman,
@@ -228,7 +247,6 @@ fn spearman_and_bh_only_matching() {
         AdjustmentMethod::BenjaminiHochberg,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // As there is no matching genes/GEMs no combinations are evaluated
@@ -241,10 +259,9 @@ fn spearman_and_bh_only_matching() {
 fn spearman_and_bonferroni_cor_0_6() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Spearman,
@@ -253,12 +270,11 @@ fn spearman_and_bonferroni_cor_0_6() {
         AdjustmentMethod::Bonferroni,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // The adjustment method should not modify the number of resulting combinations
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);
-    assert_eq!(result.len(), 15);
+    assert_eq!(result.len(), EXPECTED_SPEARMAN.len());
 
     let collected_as_tuples = get_tuples_from_result(&result);
 
@@ -274,10 +290,9 @@ fn spearman_and_bonferroni_cor_0_6() {
 fn spearman_and_by_cor_0_6() {
     // Some parameters
     let is_all_vs_all = true;
-    let keep_top_n = None; // Keep all the results
     let collect_gem_dataset = Some(true); // Better performance. Keep GEM file in memory
 
-    let (result, number_of_elements_evaluated) = compute(
+    let (result, number_of_elements_evaluated) = compute_no_truncate(
         DF1_PATH.to_string(),
         DF2_PATH.to_string(),
         CorrelationMethod::Spearman,
@@ -286,12 +301,11 @@ fn spearman_and_by_cor_0_6() {
         AdjustmentMethod::BenjaminiYekutieli,
         is_all_vs_all,
         collect_gem_dataset,
-        keep_top_n,
     );
 
     // The adjustment method should not modify the number of resulting combinations
     assert_eq!(number_of_elements_evaluated, TOTAL_COMBINATIONS_EVALUATED);
-    assert_eq!(result.len(), 15);
+    assert_eq!(result.len(), EXPECTED_SPEARMAN.len());
 
     let collected_as_tuples = get_tuples_from_result(&result);
     assert_eq_results(&collected_as_tuples, &EXPECTED_SPEARMAN_BY);

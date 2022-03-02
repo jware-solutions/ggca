@@ -41,7 +41,7 @@
 //!     keep_top_n,
 //! };
 //! 
-//! let (result, number_of_elements_evaluated) = analysis.compute().unwrap();
+//! let (result, _total_combinations_count, number_of_elements_evaluated) = analysis.compute().unwrap();
 //!
 //! println!(
 //!     "Number of elements -> {} of {} combinations evaluated",
@@ -85,7 +85,7 @@
 //! 
 //! };
 //!
-//! let (result, number_of_elements_evaluated) = analysis.compute().unwrap();
+//! let (result, _total_combinations_count, number_of_elements_evaluated) = analysis.compute().unwrap();
 //! 
 //! println!(
 //!     "Number of elements -> {} of {} combinations evaluated",
@@ -144,7 +144,7 @@ create_exception!(ggca, InvalidAdjustmentMethod, pyo3::exceptions::PyException);
     gem_contains_cpg: bool,
     collect_gem_dataset: Option<bool>,
     keep_top_n: Option<usize>,
-) -> PyResult<(VecOfResults, usize)> {
+) -> PyResult<(VecOfResults, usize, usize)> {
     py.allow_threads(|| {
         let correlation_method = match correlation_method {
             1 => Ok(CorrelationMethod::Spearman),

@@ -43,11 +43,11 @@ def correlate(
     correlation_threshold: float,
     sort_buf_size: int,
     adjustment_method: int,
-    all_vs_all: bool,
+    is_all_vs_all: bool,
     gem_contains_cpg: bool,
     collect_gem_dataset: Optional[bool],
     keep_top_n: Optional[int],
-) -> Tuple[List[CorResult], int]:
+) -> Tuple[List[CorResult], int, int]:
 	"""
 	Computes the correlation between both mRNA and GEM files' rows.
 
@@ -57,11 +57,11 @@ def correlate(
 	:param correlation_threshold: The threshold to discard all results whose correlation statistic values are below this value
 	:param sort_buf_size: Number of elements to sort by block in disk during p-value adjustment process. Greater blocks are faster but consume more memory
 	:param adjustment_method: P-value adjustment method (Benjamini-Hochberg = 1, Benjamini-Yekutieli = 2 or Bonferroni = 3)
-	:param all_vs_all:  True if all Genes must be evaluated with all GEMs. Otherwise, only matching Genes/GEM will be evaluated (useful for CNA or Methylation analysis)
+	:param is_all_vs_all: True if all Genes must be evaluated with all GEMs. Otherwise, only matching Genes/GEM will be evaluated (useful for CNA or Methylation analysis)
 	:param gem_contains_cpg: Set to True if your GEM data contains CpG Site IDs as the second column to preserve the GEM/CpG Site reference
 	:param collect_gem_dataset: True to make the GEM dataset available in memory. This has a HUGE impact in analysis performance. Specify a boolean value to force or use None to allocate in memory automatically when GEM dataset size is small (<= 100MB)
 	:param keep_top_n: Specify a number of results to keep or None to return all the resulting combinations
-	:return: A tuple with a vec of CorResult and the number of combinations evaluated
+	:return: A tuple with a vec of CorResult, the number of combinations before truncating by 'keep_top_n' parameter and the number of combinations evaluated
 	"""
 	...
 
