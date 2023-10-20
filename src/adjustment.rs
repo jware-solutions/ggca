@@ -37,7 +37,7 @@ impl BenjaminiHochberg {
 impl Adjustment for BenjaminiHochberg {
     fn adjust(&mut self, p_value: f64, rank: usize) -> f64 {
         let valid_rank = self.total_number_of_elements - rank as f64;
-        let q_value = p_value * (self.total_number_of_elements / valid_rank as f64);
+        let q_value = p_value * (self.total_number_of_elements / valid_rank);
         let q_value = q_value.min(self.previous_max_p_value).min(1.0);
         self.previous_max_p_value = q_value;
         q_value
@@ -67,7 +67,7 @@ impl Adjustment for BenjaminiYekutieli {
     fn adjust(&mut self, p_value: f64, rank: usize) -> f64 {
         let valid_rank = self.total_number_of_elements - rank as f64;
         let adjustment_factor =
-            self.accumulator * self.total_number_of_elements / valid_rank as f64;
+            self.accumulator * self.total_number_of_elements / valid_rank;
         let q_value = p_value * adjustment_factor;
         let q_value = q_value.min(self.previous_max_p_value).min(1.0);
         self.previous_max_p_value = q_value;

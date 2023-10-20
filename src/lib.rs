@@ -132,7 +132,8 @@ create_exception!(ggca, InvalidAdjustmentMethod, pyo3::exceptions::PyException);
 
 // NOTE: Python has named arguments, so this linting warning can be disabled without sacrificing maintainability
 #[pyfunction]
-#[allow(clippy::too_many_arguments)] fn correlate(
+#[allow(clippy::too_many_arguments)] 
+fn correlate(
     py: Python,
     gene_file_path: String,
     gem_file_path: String,
