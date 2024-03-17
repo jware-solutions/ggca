@@ -1,19 +1,98 @@
 use bincode::{deserialize, serialize};
+use distrs::StudentsT;
 use extsort::Sortable;
+use ordered_float::OrderedFloat;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
 use pyo3::ToPyObject;
-use rgsl::randist::gaussian::gaussian_P;
-use rgsl::{
-    randist::t_distribution::{tdist_P, tdist_Q},
-    statistics::{correlation, spearman},
-};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::{
     fmt::Debug,
     io::{Read, Write},
 };
+
+/// Calculates the Pearson correlation coefficient between two arrays of f64 values.
+/// Returns the correlation coefficient.
+/// # Arguments
+/// * `x` - Array of f64 values
+/// * `y` - Array of f64 values
+/// # Example
+/// ```
+/// use ggca::correlation::pearson_correlation;
+/// 
+/// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let y = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let correlation = pearson_correlation(&x, &y);
+/// 
+/// assert_eq!(correlation, 1.0);
+/// ```
+fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
+    let n = x.len() as f64;
+    let mut sum_x = 0.0;
+    let mut sum_y = 0.0;
+    let mut sum_xy = 0.0;
+    let mut sum_x2 = 0.0;
+    let mut sum_y2 = 0.0;
+
+    for i in 0..x.len() {
+        sum_x += x[i];
+        sum_y += y[i];
+        sum_xy += x[i] * y[i];
+        sum_x2 += x[i] * x[i];
+        sum_y2 += y[i] * y[i];
+    }
+
+    let numerator = sum_xy - (sum_x * sum_y / n);
+    let denominator = ((sum_x2 - (sum_x * sum_x / n)) * (sum_y2 - (sum_y * sum_y / n))).sqrt();
+
+    numerator / denominator
+}
+
+
+/// Calculates the Spearman correlation coefficient between two arrays of f64 values.
+/// Returns the correlation coefficient.
+/// 
+/// # Arguments
+/// * `x` - Array of f64 values
+/// * `y` - Array of f64 values
+/// 
+/// # Example
+/// ```
+/// use ggca::correlation::spearman_correlation;
+/// 
+/// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let y = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let correlation = spearman_correlation(&x, &y);
+/// 
+/// assert_eq!(correlation, 1.0);
+/// ```
+fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
+    let n = x.len() as f64;
+    let mut rank_x: Vec<f64> = x.iter().map(|v| *v).collect();
+    let mut rank_y: Vec<f64> = y.iter().map(|v| *v).collect();
+
+    rank_x.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    rank_y.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let mut rank_map_x: BTreeMap<OrderedFloat<f64>, f64> = BTreeMap::new();
+    let mut rank_map_y: BTreeMap<OrderedFloat<f64>, f64> = BTreeMap::new();
+
+    for i in 0..n as usize {
+        rank_map_x.insert(OrderedFloat(rank_x[i]), (i + 1) as f64);
+        rank_map_y.insert(OrderedFloat(rank_y[i]), (i + 1) as f64);
+    }
+
+    let mut sum_d2 = 0.0;
+    for i in 0..n as usize {
+        let d = rank_map_x[&OrderedFloat(x[i])] - rank_map_y[&OrderedFloat(y[i])];
+        sum_d2 += d * d;
+    }
+
+    1.0 - (6.0 * sum_d2) / (n * (n * n - 1.0))
+}
+
 
 /// Represents an correlation analysis result. Includes Gene, GEM, CpG Site ID (if specified) correlation statistic,
 /// p-value and adjusted p-value.
@@ -40,10 +119,41 @@ pub struct CorResult {
     pub adjusted_p_value: Option<f64>,
 }
 
+use std::f64::consts::SQRT_2;
+
+fn gaussian_p(x: f64, sigma: f64) -> f64 {
+    let mu = 0.0;
+    if sigma == 0.0 {
+        return if x < mu { 0.0 } else { 1.0 };
+    }
+
+    let t = (x - mu) / (sigma * SQRT_2);
+    let y = erfc(-t);
+    y / 2.0
+}
+
+fn erfc(x: f64) -> f64 {
+    let mut sum = 0.0;
+    let mut term = 1.0;
+    let mut n = 1;
+
+    loop {
+        sum += term;
+        n += 2;
+        term *= -x * x / (n - 1) as f64;
+
+        if term.abs() < 1e-15 * sum.abs() {
+            break;
+        }
+    }
+
+    2.0 * std::f64::consts::E.powf(-x * x) / SQRT_2 / std::f64::consts::PI * sum
+}
+
 #[pymethods]
 impl CorResult {
     #[new]
-    #[args(args = "*")]
+    #[pyo3(signature = (*args))]
     fn new(args: &PyTuple) -> Self {
         if args.len() >= 2 {
             CorResult {
@@ -190,14 +300,15 @@ impl Pearson {
 
 impl Correlation for Pearson {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
-        let r = correlation(x, 1, y, 1, self.n);
+        let r = pearson_correlation(x, y);
 
         // P-value (two-sided)
         // Based on R's cor.test method (https://github.com/SurajGupta/r-source/blob/a28e609e72ed7c47f6ddfbb86c85279a0750f0b7/src/library/stats/R/cor.test.R#L21)
         let statistic = self.degrees_of_freedom.sqrt() * r / (1.0 - r.powi(2)).sqrt();
-        let p_value = 2.0
-            * tdist_P(statistic, self.degrees_of_freedom)
-                .min(tdist_Q(statistic, self.degrees_of_freedom));
+        
+        let cdf = StudentsT::cdf(statistic, self.degrees_of_freedom);
+        let ccdf = 1.0 - cdf;
+        let p_value = 2.0 * cdf.min(ccdf);
 
         (r, p_value)
     }
@@ -219,14 +330,16 @@ impl Spearman {
 
 impl Correlation for Spearman {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
-        let mut vec = Vec::with_capacity(2 * self.n);
-        let workspace: &mut [f64] = vec.as_mut_slice();
-        let rs = spearman(x, 1, y, 1, self.n, workspace);
+        let rs = spearman_correlation(x, y);
 
         // P-value (two-sided)
         // Same behavior as Python Scipy's spearmanr method
+        // let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
+        // let ccdf = tdist_Q(t.abs(), self.degrees_of_freedom);
+        // let p_value = 2.0 * ccdf;
+
         let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
-        let ccdf = tdist_Q(t.abs(), self.degrees_of_freedom);
+        let ccdf = 1.0 - StudentsT::cdf(t.abs(), self.degrees_of_freedom);
         let p_value = 2.0 * ccdf;
 
         (rs, p_value)
@@ -249,7 +362,7 @@ impl Correlation for Kendall {
         .unwrap();
 
         // P-value (two-sided)
-        let cdf = gaussian_P(-significance.abs(), 1.0);
+        let cdf = gaussian_p(-significance.abs(), 1.0);
         let p_value = 2.0 * cdf;
 
         (tau, p_value)
