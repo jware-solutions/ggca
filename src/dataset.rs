@@ -1,10 +1,11 @@
 use crate::types::{LazyMatrixInner, TupleExpressionValues};
 use csv::{Reader, ReaderBuilder};
 use pyo3::create_exception;
+use pyo3::exceptions::PyException;
 use pyo3::PyResult;
 use std::fs::File;
 
-create_exception!(ggca, GGCAError, pyo3::exceptions::PyException);
+create_exception!(ggca, GGCAError, PyException, "GGCA Error");
 
 /// Creates CSV Reader from a path with the Tab delimiter
 /// # Args
