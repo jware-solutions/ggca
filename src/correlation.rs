@@ -1,6 +1,5 @@
 use bincode::{deserialize, serialize};
 use extsort::Sortable;
-use ordered_float::OrderedFloat;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
 use pyo3::ToPyObject;
@@ -9,8 +8,6 @@ use statrs::distribution::ContinuousCDF;
 use statrs::distribution::Normal;
 use statrs::distribution::StudentsT;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::f64::NAN;
 use std::{
     fmt::Debug,
     io::{Read, Write},
@@ -70,73 +67,21 @@ pub fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
 ///
 /// assert_eq!(correlation, 1.0);
 /// ```
-pub fn spearman_correlation_old(x: &[f64], y: &[f64]) -> f64 {
-    let n = x.len() as f64;
-    let mut rank_x: Vec<f64> = x.iter().map(|v| *v).collect();
-    let mut rank_y: Vec<f64> = y.iter().map(|v| *v).collect();
-
-    rank_x.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    rank_y.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-    let mut rank_map_x: BTreeMap<OrderedFloat<f64>, f64> = BTreeMap::new();
-    let mut rank_map_y: BTreeMap<OrderedFloat<f64>, f64> = BTreeMap::new();
-
-    for i in 0..n as usize {
-        rank_map_x.insert(OrderedFloat(rank_x[i]), (i + 1) as f64);
-        rank_map_y.insert(OrderedFloat(rank_y[i]), (i + 1) as f64);
-    }
-
-    let mut sum_d2 = 0.0;
-    for i in 0..n as usize {
-        let d = rank_map_x[&OrderedFloat(x[i])] - rank_map_y[&OrderedFloat(y[i])];
-        sum_d2 += d * d;
-    }
-
-    1.0 - (6.0 * sum_d2) / (n * (n * n - 1.0))
-}
-
-/// Calculates the Spearman correlation coefficient between two arrays of f64 values.
-/// Returns the correlation coefficient.
-///
-/// # Arguments
-/// * `x` - Array of f64 values
-/// * `y` - Array of f64 values
-///
-/// # Example
-/// ```
-/// use ggca::correlation::spearman_correlation;
-///
-/// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-/// let y = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-/// let correlation = spearman_correlation(&x, &y);
-///
-/// assert_eq!(correlation, 1.0);
-/// ```
 pub fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
-    // let n = x.len() as f64;
-
     // Calculate ranks for x and y
-    let rank_x = rank_vector(x);
-    let rank_y = rank_vector(y);
+    let rank_x = rank_vector_avg(x);
+    let rank_y = rank_vector_avg(y);
 
-    let pearson_cor = pearson_correlation(&rank_x, &rank_y);
-
-
-    // // Calculate the squared differences of ranks
-    // let squared_diff_sum: f64 = rank_x.iter().zip(rank_y.iter())
-    //     .map(|(&rx, &ry)| (rx - ry).powi(2))
-    //     .sum();
-
-    // // Calculate Spearman correlation
-    // let correlation = 1.0 - (6.0 * squared_diff_sum) / (n * (n.powi(2) - 1.0));
-
-    // Some(correlation)
-    pearson_cor
+    // Calculate Pearson correlation between ranks https://en.wikipedia.org/wiki/Spearman%27s_rank_correlation_coefficient#Definition_and_calculation
+    pearson_correlation(&rank_x, &rank_y)
 }
 
-fn rank_vector(v: &[f64]) -> Vec<f64> {
+/// Rank vector elements. Ties are assigned the average rank.
+fn rank_vector_avg(v: &[f64]) -> Vec<f64> {
     let n = v.len();
     let mut indexed: Vec<(usize, &f64)> = v.iter().enumerate().collect();
+
+    // Sort by value
     indexed.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
 
     let mut ranks = vec![0.0; n];
@@ -343,14 +288,14 @@ impl Correlation for Pearson {
 
         // In case of NaN, the p-value is also NaN to filter it out later
         if statistic.is_nan() {
-            (r, NAN)
+            (r, f64::NAN)
         } else {
             let cdf = StudentsT::new(0.0, 1.0, self.degrees_of_freedom) // TODO: add instantiation of Normal struct in Pearson struct
                 .unwrap()
                 .cdf(statistic);
             let ccdf = 1.0 - cdf;
             let p_value = 2.0 * cdf.min(ccdf);
-    
+
             (r, p_value)
         }
     }
@@ -376,19 +321,18 @@ impl Correlation for Spearman {
         // Same behavior as Python Scipy's spearmanr method
         let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
 
-        // TODO: uncomment NaN check
         // In case of NaN, the p-value is also NaN to filter it out later
-        // if t.is_nan() {
-            // (rs, NAN)
-        // } else {
+        if t.is_nan() {
+            (rs, f64::NAN)
+        } else {
             let cdf = StudentsT::new(0.0, 1.0, self.degrees_of_freedom) // TODO: add instantiation of Normal struct in Spearman struct
                 .unwrap()
                 .cdf(t.abs());
             let ccdf = 1.0 - cdf;
             let p_value = 2.0 * ccdf;
-    
+
             (rs, p_value)
-        // }
+        }
     }
 }
 
