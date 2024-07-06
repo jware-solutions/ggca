@@ -1,13 +1,16 @@
 use bincode::{deserialize, serialize};
-use distrs::StudentsT;
 use extsort::Sortable;
 use ordered_float::OrderedFloat;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
 use pyo3::ToPyObject;
 use serde_derive::{Deserialize, Serialize};
+use statrs::distribution::ContinuousCDF;
+use statrs::distribution::Normal;
+use statrs::distribution::StudentsT;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::f64::NAN;
 use std::{
     fmt::Debug,
     io::{Read, Write},
@@ -21,11 +24,11 @@ use std::{
 /// # Example
 /// ```
 /// use ggca::correlation::pearson_correlation;
-/// 
+///
 /// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 /// let y = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 /// let correlation = pearson_correlation(&x, &y);
-/// 
+///
 /// assert_eq!(correlation, 1.0);
 /// ```
 fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
@@ -50,22 +53,21 @@ fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
     numerator / denominator
 }
 
-
 /// Calculates the Spearman correlation coefficient between two arrays of f64 values.
 /// Returns the correlation coefficient.
-/// 
+///
 /// # Arguments
 /// * `x` - Array of f64 values
 /// * `y` - Array of f64 values
-/// 
+///
 /// # Example
 /// ```
 /// use ggca::correlation::spearman_correlation;
-/// 
+///
 /// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 /// let y = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 /// let correlation = spearman_correlation(&x, &y);
-/// 
+///
 /// assert_eq!(correlation, 1.0);
 /// ```
 fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
@@ -93,7 +95,6 @@ fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
     1.0 - (6.0 * sum_d2) / (n * (n * n - 1.0))
 }
 
-
 /// Represents an correlation analysis result. Includes Gene, GEM, CpG Site ID (if specified) correlation statistic,
 /// p-value and adjusted p-value.
 #[pyclass(module = "ggca")]
@@ -117,37 +118,6 @@ pub struct CorResult {
     /// Adjusted p-value (Benjamini-Hochberg, Benjamini-Yekutieli or Bonferroni, as selected)
     #[pyo3(get, set)]
     pub adjusted_p_value: Option<f64>,
-}
-
-use std::f64::consts::SQRT_2;
-
-fn gaussian_p(x: f64, sigma: f64) -> f64 {
-    let mu = 0.0;
-    if sigma == 0.0 {
-        return if x < mu { 0.0 } else { 1.0 };
-    }
-
-    let t = (x - mu) / (sigma * SQRT_2);
-    let y = erfc(-t);
-    y / 2.0
-}
-
-fn erfc(x: f64) -> f64 {
-    let mut sum = 0.0;
-    let mut term = 1.0;
-    let mut n = 1;
-
-    loop {
-        sum += term;
-        n += 2;
-        term *= -x * x / (n - 1) as f64;
-
-        if term.abs() < 1e-15 * sum.abs() {
-            break;
-        }
-    }
-
-    2.0 * std::f64::consts::E.powf(-x * x) / SQRT_2 / std::f64::consts::PI * sum
 }
 
 #[pymethods]
@@ -285,14 +255,12 @@ pub trait Correlation {
 }
 
 pub struct Pearson {
-    n: usize,
     degrees_of_freedom: f64,
 }
 
 impl Pearson {
     fn new(n: usize) -> Self {
         Pearson {
-            n,
             degrees_of_freedom: (n - 2) as f64,
         }
     }
@@ -305,24 +273,29 @@ impl Correlation for Pearson {
         // P-value (two-sided)
         // Based on R's cor.test method (https://github.com/SurajGupta/r-source/blob/a28e609e72ed7c47f6ddfbb86c85279a0750f0b7/src/library/stats/R/cor.test.R#L21)
         let statistic = self.degrees_of_freedom.sqrt() * r / (1.0 - r.powi(2)).sqrt();
-        
-        let cdf = StudentsT::cdf(statistic, self.degrees_of_freedom);
-        let ccdf = 1.0 - cdf;
-        let p_value = 2.0 * cdf.min(ccdf);
 
-        (r, p_value)
+        // In case of NaN, the p-value is also NaN to filter it out later
+        if statistic.is_nan() {
+            (r, NAN)
+        } else {
+            let cdf = StudentsT::new(0.0, 1.0, self.degrees_of_freedom) // TODO: add instantiation of Normal struct in Pearson struct
+                .unwrap()
+                .cdf(statistic);
+            let ccdf = 1.0 - cdf;
+            let p_value = 2.0 * cdf.min(ccdf);
+    
+            (r, p_value)
+        }
     }
 }
 
 struct Spearman {
-    n: usize,
     degrees_of_freedom: f64,
 }
 
 impl Spearman {
     fn new(n: usize) -> Self {
         Spearman {
-            n,
             degrees_of_freedom: (n - 2) as f64,
         }
     }
@@ -334,15 +307,21 @@ impl Correlation for Spearman {
 
         // P-value (two-sided)
         // Same behavior as Python Scipy's spearmanr method
-        // let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
-        // let ccdf = tdist_Q(t.abs(), self.degrees_of_freedom);
-        // let p_value = 2.0 * ccdf;
-
         let t = rs * (self.degrees_of_freedom / ((rs + 1.0) * (1.0 - rs))).sqrt();
-        let ccdf = 1.0 - StudentsT::cdf(t.abs(), self.degrees_of_freedom);
-        let p_value = 2.0 * ccdf;
 
-        (rs, p_value)
+        // TODO: uncomment NaN check
+        // In case of NaN, the p-value is also NaN to filter it out later
+        // if t.is_nan() {
+            // (rs, NAN)
+        // } else {
+            let cdf = StudentsT::new(0.0, 1.0, self.degrees_of_freedom) // TODO: add instantiation of Normal struct in Spearman struct
+                .unwrap()
+                .cdf(t.abs());
+            let ccdf = 1.0 - cdf;
+            let p_value = 2.0 * ccdf;
+    
+            (rs, p_value)
+        // }
     }
 }
 
@@ -362,7 +341,7 @@ impl Correlation for Kendall {
         .unwrap();
 
         // P-value (two-sided)
-        let cdf = gaussian_p(-significance.abs(), 1.0);
+        let cdf = Normal::new(0.0, 1.0).unwrap().cdf(-significance.abs()); // TODO: add instantiation of Normal struct in Kendall struct
         let p_value = 2.0 * cdf;
 
         (tau, p_value)
