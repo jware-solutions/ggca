@@ -19,11 +19,6 @@ Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-va
 - [Considerations](#considerations)
 
 
-## Requirements
-
-You need to install [GSL][gsl] >= 2.6 in your system to use this library.
-
-
 ## Usage
 
 There are a few examples in `examples` folder for both languages.
@@ -199,7 +194,6 @@ If you use any part of our code, or the tool itself is useful for your research,
 [pypi-site]: https://pypi.org/project/ggca/
 [crate-site]: https://crates.io/crates/ggca
 [cpg-site]: https://en.wikipedia.org/wiki/CpG_site
-[gsl]: https://www.gnu.org/software/gsl/
 [pyo3-issue]: https://github.com/PyO3/pyo3/issues/1084
 [r-cor-test]: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/cor.test
 [r-p-adjust]: https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/p.adjust

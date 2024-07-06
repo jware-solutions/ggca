@@ -4,8 +4,7 @@
 //!
 //! ## Installation
 //!
-//! 1. Install [GSL][gsl] >= 2.6 in your system.
-//! 1. Add crate to `Cargo.toml`: `ggca = "0.4.0"`
+//! 1. Add crate to `Cargo.toml`: `ggca = "1.0.0"`
 //!
 //!
 //! ## Usage
@@ -104,7 +103,6 @@
 //! You can check the [examples][examples-folder] folder for more types of analysis!
 //!
 //!
-//! [gsl]: https://www.gnu.org/software/gsl/
 //! [cpg-site]: https://en.wikipedia.org/wiki/CpG_site
 //! [examples-folder]: https://github.com/jware-solutions/ggca/tree/master/examples
 
