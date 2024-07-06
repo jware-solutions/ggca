@@ -121,11 +121,11 @@ for cor_p_value in result.iter() {
 
 Note that [env_logger][env-logger] crate is used to provide some warning in case some mRNA/GEM combinations produce NaN values (for instance, because the input array has 0 std). In that case, you can add RUST_LOG=warn to your command to produce warnings in the stderr. E.g:
 
-`RUST_LOG=warn cargo test --no-default-features --tests`
+`RUST_LOG=warn cargo test --tests`
 
 or 
 
-`RUST_LOG=warn cargo run --example basic --no-default-features`
+`RUST_LOG=warn cargo run --example basic`
 
 
 ## Contributing
@@ -147,10 +147,10 @@ We provide a Docker image to execute all the commands listed below:
 - Build for rust: cargo build [--release]
 - Build for Python (uses Maturin):
 	1. First of all, remove the `target/wheels` folder: `rm -rf ./target/wheels`
-	1. Build wheels: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build:0.2.3 maturin build --release --skip-auditwheel --manylinux=2014`
-	1. Repair wheels to include some missing `.so` files: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build:0.2.3 ./repair-wheels.sh`
+	1. Build wheels: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build:0.3.0 maturin build --release --skip-auditwheel --manylinux=2014`
+	1. Repair wheels to include some missing `.so` files: `docker run --rm -v $(pwd):/io jwaresolutions/ggca-build:0.3.0 ./repair-wheels.sh`
 - Only for development:
-	- To run the examples you must run with this command due to [an issue][pyo3-issue] with Pyo3: `cargo run [--release] --no-default-features --example <example>`
+	- To run the examples you must run with this command due to [an issue][pyo3-issue] with Pyo3: `cargo run [--release] --example <example>`
 	- In Python you can test with Maturin:
 		- Maturin develop (installs the package in your current virtualenv): `maturin develop`
 		- Maturin build (just builds the wheel for your current Python version): `maturin build --manylinux=1-unchecked`
@@ -170,7 +170,7 @@ All the correlations results were compared directly with R-Multiomics output (ol
 
 ### Performance
 
-We use [criterion.rs][criterion] to perform benchmarks. In case you have made a contribution you can check that no regression was added to the project. Just run `cargo bench --no-default-features` before and after your changes to perform a statistical analysis of performance.
+We use [criterion.rs][criterion] to perform benchmarks. In case you have made a contribution you can check that no regression was added to the project. Just run `cargo bench` before and after your changes to perform a statistical analysis of performance.
 
 
 ## Considerations
