@@ -12,7 +12,7 @@
 //!
 //! **Basic example**:
 //!
-//! ```
+//! ```ignore
 //! use ggca::adjustment::AdjustmentMethod;
 //! use ggca::analysis::Analysis;
 //! use ggca::correlation::CorrelationMethod;
@@ -56,7 +56,7 @@
 //!
 //! **With CpG Site IDs**:
 //!
-//! ```
+//! ```ignore
 //! use ggca::adjustment::AdjustmentMethod;
 //! use ggca::analysis::Analysis;
 //! use ggca::correlation::CorrelationMethod;

@@ -31,7 +31,7 @@ use std::{
 ///
 /// assert_eq!(correlation, 1.0);
 /// ```
-fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
+pub fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len() as f64;
     let mut sum_x = 0.0;
     let mut sum_y = 0.0;
@@ -70,7 +70,7 @@ fn pearson_correlation(x: &[f64], y: &[f64]) -> f64 {
 ///
 /// assert_eq!(correlation, 1.0);
 /// ```
-fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
+pub fn spearman_correlation_old(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len() as f64;
     let mut rank_x: Vec<f64> = x.iter().map(|v| *v).collect();
     let mut rank_y: Vec<f64> = y.iter().map(|v| *v).collect();
@@ -93,6 +93,73 @@ fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
     }
 
     1.0 - (6.0 * sum_d2) / (n * (n * n - 1.0))
+}
+
+/// Calculates the Spearman correlation coefficient between two arrays of f64 values.
+/// Returns the correlation coefficient.
+///
+/// # Arguments
+/// * `x` - Array of f64 values
+/// * `y` - Array of f64 values
+///
+/// # Example
+/// ```
+/// use ggca::correlation::spearman_correlation;
+///
+/// let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let y = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+/// let correlation = spearman_correlation(&x, &y);
+///
+/// assert_eq!(correlation, 1.0);
+/// ```
+pub fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
+    // let n = x.len() as f64;
+
+    // Calculate ranks for x and y
+    let rank_x = rank_vector(x);
+    let rank_y = rank_vector(y);
+
+    let pearson_cor = pearson_correlation(&rank_x, &rank_y);
+
+
+    // // Calculate the squared differences of ranks
+    // let squared_diff_sum: f64 = rank_x.iter().zip(rank_y.iter())
+    //     .map(|(&rx, &ry)| (rx - ry).powi(2))
+    //     .sum();
+
+    // // Calculate Spearman correlation
+    // let correlation = 1.0 - (6.0 * squared_diff_sum) / (n * (n.powi(2) - 1.0));
+
+    // Some(correlation)
+    pearson_cor
+}
+
+fn rank_vector(v: &[f64]) -> Vec<f64> {
+    let n = v.len();
+    let mut indexed: Vec<(usize, &f64)> = v.iter().enumerate().collect();
+    indexed.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    let mut ranks = vec![0.0; n];
+    let mut i = 0;
+    while i < n {
+        let mut j = i + 1;
+        while j < n && (indexed[j].1 - indexed[i].1).abs() < f64::EPSILON {
+            j += 1;
+        }
+
+        // Calculate average rank for tied elements
+        let rank_sum: f64 = (i + 1..=j).sum::<usize>() as f64;
+        let avg_rank = rank_sum / (j - i) as f64;
+
+        // Assign average rank to all tied elements
+        for k in i..j {
+            ranks[indexed[k].0] = avg_rank;
+        }
+
+        i = j;
+    }
+
+    ranks
 }
 
 /// Represents an correlation analysis result. Includes Gene, GEM, CpG Site ID (if specified) correlation statistic,
