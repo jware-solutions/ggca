@@ -24,24 +24,41 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
+        python-version: [
+          "pypy-3.10",
+          "pypy-3.9",
+          "3.8",
+          "3.9",
+          "3.10",
+          "3.11",
+          "3.12",
+          "3.13",
+          "3",
+          "3.x",
+        ]
         platform:
           - runner: ubuntu-latest
             target: x86_64
-          - runner: ubuntu-latest
-            target: x86
-          - runner: ubuntu-latest
-            target: aarch64
-          - runner: ubuntu-latest
-            target: armv7
-          - runner: ubuntu-latest
-            target: s390x
-          - runner: ubuntu-latest
-            target: ppc64le
+          # - runner: ubuntu-latest
+          #   target: x86
+          # - runner: ubuntu-latest
+          #   target: aarch64
+          # - runner: ubuntu-latest
+          #   target: armv7
+          # - runner: ubuntu-latest
+          #   target: s390x
+          # - runner: ubuntu-latest
+          #   target: ppc64le
     steps:
       - uses: actions/checkout@v4
+      # Set up Python to avoid cache and include modern versions
+      # Read more at (https://github.com/PyO3/maturin-action/discussions/218)
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+          cache: pip
+          cache-dependency-path: .github/workflows/ci.yml
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
