@@ -23,7 +23,7 @@ def main():
             correlation_threshold=0.5,
             sort_buf_size=2_000_000,
             adjustment_method=BENJAMINI_HOCHBERG,
-            all_vs_all=True,
+            is_all_vs_all=True,
             gem_contains_cpg=False,
             collect_gem_dataset=None,
             keep_top_n=2  # Keeps only top 2 elements
