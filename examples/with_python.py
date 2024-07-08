@@ -1,15 +1,5 @@
 import ggca
 
-# Possible Correlation methods
-SPEARMAN = 1
-KENDALL = 2
-PEARSON = 3
-
-# Possible P-values adjustment methods
-BENJAMINI_HOCHBERG = 1
-BENJAMINI_YEKUTIELI = 2
-BONFERRONI = 3
-
 
 def main():
     mrna_file_path = "mrna.csv"
@@ -19,10 +9,10 @@ def main():
         (result_combinations, _total_combinations_count, evaluated_combinations) = ggca.correlate(
             mrna_file_path,
             gem_file_path,
-            correlation_method=PEARSON,
+            correlation_method=ggca.CorrelationMethod.Pearson,
             correlation_threshold=0.5,
             sort_buf_size=2_000_000,
-            adjustment_method=BENJAMINI_HOCHBERG,
+            adjustment_method=ggca.AdjustmentMethod.BenjaminiHochberg,
             is_all_vs_all=True,
             gem_contains_cpg=False,
             collect_gem_dataset=None,

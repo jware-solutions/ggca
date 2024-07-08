@@ -39,7 +39,7 @@
 //!     collect_gem_dataset,
 //!     keep_top_n,
 //! };
-//! 
+//!
 //! let (result, _total_combinations_count, number_of_elements_evaluated) = analysis.compute().unwrap();
 //!
 //! println!(
@@ -81,11 +81,11 @@
 //!     is_all_vs_all,
 //!     collect_gem_dataset,
 //!     keep_top_n,
-//! 
+//!
 //! };
 //!
 //! let (result, _total_combinations_count, number_of_elements_evaluated) = analysis.compute().unwrap();
-//! 
+//!
 //! println!(
 //!     "Number of elements -> {} of {} combinations evaluated",
 //!     result.len(),
@@ -130,47 +130,26 @@ create_exception!(ggca, InvalidAdjustmentMethod, pyo3::exceptions::PyException);
 
 // NOTE: Python has named arguments, so this linting warning can be disabled without sacrificing maintainability
 #[pyfunction]
-#[allow(clippy::too_many_arguments)] 
+#[pyo3(signature = (gene_file_path, gem_file_path, correlation_method, correlation_threshold, sort_buf_size, adjustment_method, is_all_vs_all, gem_contains_cpg, collect_gem_dataset=None, keep_top_n=None))]
+#[allow(clippy::too_many_arguments)]
 fn correlate(
     py: Python,
     gene_file_path: String,
     gem_file_path: String,
-    correlation_method: i32,
+    correlation_method: CorrelationMethod,
     correlation_threshold: f64,
     sort_buf_size: usize,
-    adjustment_method: i32,
+    adjustment_method: AdjustmentMethod,
     is_all_vs_all: bool,
     gem_contains_cpg: bool,
     collect_gem_dataset: Option<bool>,
     keep_top_n: Option<usize>,
 ) -> PyResult<(VecOfResults, usize, usize)> {
     py.allow_threads(|| {
-        let correlation_method = match correlation_method {
-            1 => Ok(CorrelationMethod::Spearman),
-            2 => Ok(CorrelationMethod::Kendall),
-            3 => Ok(CorrelationMethod::Pearson),
-            selected => Err(
-                InvalidCorrelationMethod::new_err(
-                    format!("Wrong correlation method ({selected}). Only values 1 (Spearman), 2 (Kendall) or 3 (Pearson) are valid")
-                )
-            )
-        }?;
-
-        let adjustment_method = match adjustment_method {
-            1 => Ok(AdjustmentMethod::BenjaminiHochberg),
-            2 => Ok(AdjustmentMethod::BenjaminiYekutieli),
-            3 => Ok(AdjustmentMethod::Bonferroni),
-            selected => Err(
-                InvalidAdjustmentMethod::new_err(
-                    format!("Wrong adjustment method ({selected}). Only values 1 (Benjamini-Hochberg), 2 (Benjamini-Yekutieli) or 3 (Bonferroni) are valid")
-                )
-            )
-        }?;
-
         // Creates analysis and run
         let analysis = Analysis {
-            gene_file_path, 
-            gem_file_path, 
+            gene_file_path,
+            gem_file_path,
             gem_contains_cpg,
             correlation_method,
             correlation_threshold,
@@ -187,22 +166,31 @@ fn correlate(
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn ggca(py: Python, m: &PyModule) -> PyResult<()> {
+fn ggca(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Functions
     m.add_function(wrap_pyfunction!(correlate, m)?)?;
+
+    // Enums
+    m.add_class::<CorrelationMethod>()?;
+    m.add_class::<AdjustmentMethod>()?;
+
+    // Structs
     m.add_class::<CorResult>()?;
-    m.add("GGCAError", py.get_type::<GGCAError>())?;
+
+    // Errors
+    m.add("GGCAError", py.get_type_bound::<GGCAError>())?;
     m.add(
         "GGCADiffSamplesLength",
-        py.get_type::<GGCADiffSamplesLength>(),
+        py.get_type_bound::<GGCADiffSamplesLength>(),
     )?;
-    m.add("GGCADiffSamples", py.get_type::<GGCADiffSamples>())?;
+    m.add("GGCADiffSamples", py.get_type_bound::<GGCADiffSamples>())?;
     m.add(
         "InvalidCorrelationMethod",
-        py.get_type::<InvalidCorrelationMethod>(),
+        py.get_type_bound::<InvalidCorrelationMethod>(),
     )?;
     m.add(
         "InvalidAdjustmentMethod",
-        py.get_type::<InvalidAdjustmentMethod>(),
+        py.get_type_bound::<InvalidAdjustmentMethod>(),
     )?;
     Ok(())
 }

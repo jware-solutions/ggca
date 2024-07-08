@@ -1,8 +1,9 @@
 use bincode::{deserialize, serialize};
 use extsort::Sortable;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyTuple};
-use pyo3::ToPyObject;
+use pyo3::types::PyBytes;
+use pyo3::types::PyDict;
+use pyo3::types::PyTuple;
 use serde_derive::{Deserialize, Serialize};
 use statrs::distribution::ContinuousCDF;
 use statrs::distribution::Normal;
@@ -135,50 +136,71 @@ pub struct CorResult {
 #[pymethods]
 impl CorResult {
     #[new]
-    #[pyo3(signature = (*args))]
-    fn new(args: &PyTuple) -> Self {
-        if args.len() >= 2 {
-            CorResult {
-                gene: args.get_item(0).unwrap().extract::<String>().unwrap(),
-                gem: args.get_item(1).unwrap().extract::<String>().unwrap(),
-                cpg_site_id: args
-                    .get_item(2)
-                    .unwrap()
-                    .extract::<Option<String>>()
-                    .unwrap(),
-                correlation: args.get_item(3).unwrap().extract::<Option<f64>>().unwrap(),
-                p_value: args.get_item(4).unwrap().extract::<Option<f64>>().unwrap(),
-                adjusted_p_value: args.get_item(5).unwrap().extract::<Option<f64>>().unwrap(),
-            }
-        } else {
-            CorResult {
-                gene: String::from(""),
-                gem: String::from(""),
-                cpg_site_id: None,
-                correlation: None,
-                p_value: None,
-                adjusted_p_value: None,
-            }
+    #[pyo3(signature = (gene, gem, cpg_site_id=None, correlation=None, p_value=None, adjusted_p_value=None))]
+    fn new(
+        gene: String,
+        gem: String,
+        cpg_site_id: Option<String>,
+        correlation: Option<f64>,
+        p_value: Option<f64>,
+        adjusted_p_value: Option<f64>,
+    ) -> Self {
+        CorResult {
+            gene,
+            gem,
+            cpg_site_id,
+            correlation,
+            p_value,
+            adjusted_p_value,
         }
     }
 
     // Adds support for pickle
     pub fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
-        match state.extract::<&PyTuple>(py) {
+        match state.extract::<Bound<'_, PyTuple>>(py) {
             Ok(args) => {
-                let gene_bytes = args.get_item(0).unwrap().extract::<&PyBytes>().unwrap();
+                let gene_bytes = args
+                    .get_item(0)
+                    .unwrap()
+                    .extract::<Bound<'_, PyBytes>>()
+                    .unwrap();
                 self.gene = deserialize(gene_bytes.as_bytes()).unwrap();
-                let gem_bytes = args.get_item(1).unwrap().extract::<&PyBytes>().unwrap();
+
+                let gem_bytes = args
+                    .get_item(1)
+                    .unwrap()
+                    .extract::<Bound<'_, PyBytes>>()
+                    .unwrap();
                 self.gem = deserialize(gem_bytes.as_bytes()).unwrap();
-                let cpg_site_id_bytes = args.get_item(2).unwrap().extract::<&PyBytes>().unwrap();
+
+                let cpg_site_id_bytes = args
+                    .get_item(2)
+                    .unwrap()
+                    .extract::<Bound<'_, PyBytes>>()
+                    .unwrap();
                 self.cpg_site_id = deserialize(cpg_site_id_bytes.as_bytes()).unwrap();
-                let correlation_bytes = args.get_item(3).unwrap().extract::<&PyBytes>().unwrap();
+
+                let correlation_bytes = args
+                    .get_item(3)
+                    .unwrap()
+                    .extract::<Bound<'_, PyBytes>>()
+                    .unwrap();
                 self.correlation = deserialize(correlation_bytes.as_bytes()).unwrap();
-                let p_value_bytes = args.get_item(4).unwrap().extract::<&PyBytes>().unwrap();
+
+                let p_value_bytes = args
+                    .get_item(4)
+                    .unwrap()
+                    .extract::<Bound<'_, PyBytes>>()
+                    .unwrap();
                 self.p_value = deserialize(p_value_bytes.as_bytes()).unwrap();
-                let adjusted_p_value_bytes =
-                    args.get_item(5).unwrap().extract::<&PyBytes>().unwrap();
+
+                let adjusted_p_value_bytes = args
+                    .get_item(5)
+                    .unwrap()
+                    .extract::<Bound<'_, PyBytes>>()
+                    .unwrap();
                 self.adjusted_p_value = deserialize(adjusted_p_value_bytes.as_bytes()).unwrap();
+
                 Ok(())
             }
             Err(e) => Err(e),
@@ -188,12 +210,12 @@ impl CorResult {
     // Adds support for pickle
     pub fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
         let obj = (
-            PyBytes::new(py, &serialize(&self.gene).unwrap()),
-            PyBytes::new(py, &serialize(&self.gem).unwrap()),
-            PyBytes::new(py, &serialize(&self.cpg_site_id).unwrap()),
-            PyBytes::new(py, &serialize(&self.correlation).unwrap()),
-            PyBytes::new(py, &serialize(&self.p_value).unwrap()),
-            PyBytes::new(py, &serialize(&self.adjusted_p_value).unwrap()),
+            PyBytes::new_bound(py, &serialize(&self.gene).unwrap()),
+            PyBytes::new_bound(py, &serialize(&self.gem).unwrap()),
+            PyBytes::new_bound(py, &serialize(&self.cpg_site_id).unwrap()),
+            PyBytes::new_bound(py, &serialize(&self.correlation).unwrap()),
+            PyBytes::new_bound(py, &serialize(&self.p_value).unwrap()),
+            PyBytes::new_bound(py, &serialize(&self.adjusted_p_value).unwrap()),
         )
             .to_object(py);
         Ok(obj)
@@ -228,6 +250,18 @@ impl CorResult {
             self.p_value.unwrap_or(0.0),
             self.adjusted_p_value.unwrap_or(0.0)
         )
+    }
+
+    /// Returns a dictionary with the CorResult fields
+    pub fn __dict__(&self, py: Python) -> PyResult<PyObject> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("gene", self.gene.clone())?;
+        dict.set_item("gem", self.gem.clone())?;
+        dict.set_item("cpg_site_id", self.cpg_site_id_description())?;
+        dict.set_item("correlation", self.correlation.unwrap_or(0.0))?;
+        dict.set_item("p_value", self.p_value.unwrap_or(0.0))?;
+        dict.set_item("adjusted_p_value", self.adjusted_p_value.unwrap_or(0.0))?;
+        Ok(dict.to_object(py))
     }
 }
 
@@ -346,6 +380,7 @@ impl Kendall {
 
 impl Correlation for Kendall {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
+        // TODO: replace with new implementation
         let (tau, significance) = kendalls::tau_b_with_comparator(x, y, |a: &f64, b: &f64| {
             a.partial_cmp(b).unwrap_or(Ordering::Greater)
         })
@@ -359,7 +394,8 @@ impl Correlation for Kendall {
     }
 }
 
-#[derive(Clone, Debug)]
+#[pyclass(eq, eq_int)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CorrelationMethod {
     Spearman = 1,
     Kendall = 2,

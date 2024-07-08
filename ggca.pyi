@@ -1,4 +1,19 @@
 from typing import Optional, Tuple, List
+from enum import Enum
+
+
+class CorrelationMethod(Enum):
+	"""All possible correlation methods."""
+    Spearman = 1
+    Kendall = 2
+    Pearson = 3
+
+
+class AdjustmentMethod(Enum):
+	"""All possible p-values adjustment methods."""
+    BenjaminiHochberg = 1
+    BenjaminiYekutieli = 2
+    Bonferroni = 3
 
 
 class CorResult:
@@ -39,10 +54,10 @@ class CorResult:
 def correlate(
 	gene_file_path: str,
     gem_file_path: str,
-    correlation_method: int,
+    correlation_method: CorrelationMethod,
     correlation_threshold: float,
     sort_buf_size: int,
-    adjustment_method: int,
+    adjustment_method: AdjustmentMethod,
     is_all_vs_all: bool,
     gem_contains_cpg: bool,
     collect_gem_dataset: Optional[bool],
