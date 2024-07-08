@@ -1,5 +1,5 @@
 [package]
-authors = ["JWare Solutions <jware.organization@gmail.com>"]
+authors = ["JWare Solutions <jware.organization@gmail.com>", "Sergio Leandro Calderón <bs.sergiocalderon@gmail.com>"]
 description = "Computes efficiently the correlation (Pearson, Spearman or Kendall) and the p-value (two-sided) between all the pairs from two datasets"
 documentation = "https://docs.rs/ggca/"
 edition = "2018"
