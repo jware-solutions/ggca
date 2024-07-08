@@ -17,8 +17,6 @@ use std::{
     io::{Read, Write},
 };
 
-// TODO: REMOVE THIS BLOCK WHEN https://github.com/zolkko/kendalls/pull/5 IS MERGED
-
 fn pairs_comparator(a: &f64, b: &f64) -> Ordering {
     a.partial_cmp(b).unwrap_or(Ordering::Greater)
 }
@@ -255,8 +253,6 @@ fn update_y_group(
 
     *tied_y_pairs += sum(consecutive_y_ties - 1);
 }
-
-// TODO: REMOVE THIS BLOCK WHEN https://github.com/zolkko/kendalls/pull/5 IS MERGED
 
 /// Calculates the Pearson correlation coefficient between two arrays of f64 values.
 /// Returns the correlation coefficient.
@@ -624,7 +620,6 @@ impl Kendall {
 
 impl Correlation for Kendall {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
-        // TODO: replace with 'kendalls' library when https://github.com/zolkko/kendalls/pull/5 is merged
         let (tau, significance) = tau_b_with_comparator(x, y).unwrap();
 
         // P-value (two-sided)
