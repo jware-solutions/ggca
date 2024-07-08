@@ -113,11 +113,11 @@ pub fn tau_b_with_comparator(x: &[f64], y: &[f64]) -> Result<(f64, f64), Error> 
                 let b = &pairs[j].1;
 
                 if pairs_comparator(a, b) == Ordering::Greater {
-                    pairs_dest[copy_location] = pairs[j].clone();
+                    pairs_dest[copy_location] = pairs[j];
                     j += 1;
                     swaps += i_end - i;
                 } else {
-                    pairs_dest[copy_location] = pairs[i].clone();
+                    pairs_dest[copy_location] = pairs[i];
                     i += 1;
                 }
 
@@ -125,13 +125,13 @@ pub fn tau_b_with_comparator(x: &[f64], y: &[f64]) -> Result<(f64, f64), Error> 
             }
 
             while i < i_end {
-                pairs_dest[copy_location] = pairs[i].clone();
+                pairs_dest[copy_location] = pairs[i];
                 i += 1;
                 copy_location += 1
             }
 
             while j < j_end {
-                pairs_dest[copy_location] = pairs[j].clone();
+                pairs_dest[copy_location] = pairs[j];
                 j += 1;
                 copy_location += 1
             }
@@ -211,7 +211,7 @@ pub fn tau_b_with_comparator(x: &[f64], y: &[f64]) -> Result<(f64, f64), Error> 
     let z = s / var_s.sqrt();
 
     // Limit range to fix computational errors
-    Ok((tau_b.max(-1.0).min(1.0), z))
+    Ok((tau_b.clamp(-1.0, 1.0), z))
 }
 
 #[inline]

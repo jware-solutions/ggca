@@ -244,8 +244,7 @@ impl Analysis {
                     let (filtered, filtered_aux_count) = filtered.tee();
 
                     // Sorts by correlation in descending order
-                    let sorter =
-                        ExternalSorter::new().with_segment_size(self.sort_buf_size);
+                    let sorter = ExternalSorter::new().with_segment_size(self.sort_buf_size);
                     let sorted_cor_desc =
                         sorter.sort_by(filtered, |combination_1, combination_2| {
                             // Unwrap is safe as correlation values are all valid in this stage of algorithm (None
