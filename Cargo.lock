@@ -351,7 +351,6 @@ dependencies = [
  "extsort",
  "fast-float",
  "itertools 0.9.0",
- "kendalls",
  "lazy_static",
  "log",
  "pyo3",
@@ -459,12 +458,6 @@ checksum = "a38fc24e30fd564ce974c02bf1d337caddff65be6cc4735a1f7eab22a7440f04"
 dependencies = [
  "wasm-bindgen",
 ]
-
-[[package]]
-name = "kendalls"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f930702612f89604eb1b5b5cee92f441ba9a0e1f5d521b1b756040a75e63d5a1"
 
 [[package]]
 name = "lazy_static"

@@ -1,7 +1,6 @@
 use bincode::{deserialize, serialize};
 use extsort::Sortable;
 use itertools::Itertools;
-use kendalls::Error;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::types::PyDict;
@@ -24,18 +23,7 @@ fn pairs_comparator(a: &f64, b: &f64) -> Ordering {
 /// The same as `tau_b` but also allow to specify custom comparator for numbers for
 /// which [Ord] trait is not defined.
 #[allow(clippy::many_single_char_names)]
-pub fn tau_b_with_comparator(x: &[f64], y: &[f64]) -> Result<(f64, f64), Error> {
-    if x.len() != y.len() {
-        return Err(Error::DimensionMismatch {
-            expected: x.len(),
-            got: y.len(),
-        });
-    }
-
-    if x.is_empty() {
-        return Err(Error::InsufficientLength);
-    }
-
+pub fn tau_b_with_comparator(x: &[f64], y: &[f64]) -> (f64, f64) {
     let n = x.len();
 
     let mut pairs = x.iter().cloned().zip(y.iter().cloned()).collect_vec();
@@ -209,7 +197,7 @@ pub fn tau_b_with_comparator(x: &[f64], y: &[f64]) -> Result<(f64, f64), Error> 
     let z = s / var_s.sqrt();
 
     // Limit range to fix computational errors
-    Ok((tau_b.clamp(-1.0, 1.0), z))
+    (tau_b.clamp(-1.0, 1.0), z)
 }
 
 #[inline]
@@ -542,12 +530,16 @@ pub trait Correlation {
 
 pub struct Pearson {
     degrees_of_freedom: f64,
+    /// Student's T distribution already instantiated for p-value calculation
+    student_distribution: StudentsT,
 }
 
 impl Pearson {
     fn new(n: usize) -> Self {
+        let degrees_of_freedom = (n - 2) as f64;
         Pearson {
-            degrees_of_freedom: (n - 2) as f64,
+            degrees_of_freedom,
+            student_distribution: StudentsT::new(0.0, 1.0, degrees_of_freedom).unwrap(),
         }
     }
 }
@@ -564,9 +556,7 @@ impl Correlation for Pearson {
         if statistic.is_nan() {
             (r, f64::NAN)
         } else {
-            let cdf = StudentsT::new(0.0, 1.0, self.degrees_of_freedom) // TODO: add instantiation of Normal struct in Pearson struct
-                .unwrap()
-                .cdf(statistic);
+            let cdf = self.student_distribution.cdf(statistic);
             let ccdf = 1.0 - cdf;
             let p_value = 2.0 * cdf.min(ccdf);
 
@@ -577,12 +567,16 @@ impl Correlation for Pearson {
 
 struct Spearman {
     degrees_of_freedom: f64,
+    /// Student's T distribution already instantiated for p-value calculation
+    student_distribution: StudentsT,
 }
 
 impl Spearman {
     fn new(n: usize) -> Self {
+        let degrees_of_freedom = (n - 2) as f64;
         Spearman {
-            degrees_of_freedom: (n - 2) as f64,
+            degrees_of_freedom,
+            student_distribution: StudentsT::new(0.0, 1.0, degrees_of_freedom).unwrap(),
         }
     }
 }
@@ -599,9 +593,7 @@ impl Correlation for Spearman {
         if t.is_nan() {
             (rs, f64::NAN)
         } else {
-            let cdf = StudentsT::new(0.0, 1.0, self.degrees_of_freedom) // TODO: add instantiation of Normal struct in Spearman struct
-                .unwrap()
-                .cdf(t.abs());
+            let cdf = self.student_distribution.cdf(t.abs());
             let ccdf = 1.0 - cdf;
             let p_value = 2.0 * ccdf;
 
@@ -610,20 +602,25 @@ impl Correlation for Spearman {
     }
 }
 
-struct Kendall {}
+struct Kendall {
+    /// Normal distribution already instantiated for p-value calculation
+    normal_distribution: Normal,
+}
 
 impl Kendall {
     fn new(_n: usize) -> Self {
-        Kendall {}
+        Kendall {
+            normal_distribution: Normal::new(0.0, 1.0).unwrap(),
+        }
     }
 }
 
 impl Correlation for Kendall {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64) {
-        let (tau, significance) = tau_b_with_comparator(x, y).unwrap();
+        let (tau, significance) = tau_b_with_comparator(x, y);
 
         // P-value (two-sided)
-        let cdf = Normal::new(0.0, 1.0).unwrap().cdf(-significance.abs()); // TODO: add instantiation of Normal struct in Kendall struct
+        let cdf = self.normal_distribution.cdf(-significance.abs());
         let p_value = 2.0 * cdf;
 
         (tau, p_value)

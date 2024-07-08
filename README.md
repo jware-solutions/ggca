@@ -119,21 +119,9 @@ or
 `RUST_LOG=warn cargo run --example basic`
 
 
-## Contributing
+### Development and contributions
 
-All kind of help is welcome! Feel free o submit an issue or a PR. There are some TODOs which are listed below:
-
-- [ ] Parallelize iterators to improve performance
-- [ ] Make Rust enums accessible from Python
-- [ ] Add support for Windows OS
-- [X] Add Rust documentation
-- [X] Add tests
-- [X] Add MyPy support
-
-
-### Developing
-
-We provide a Docker image to execute all the commands listed below:
+All kind of help is welcome! Feel free o submit an issue or a PR.
 
 - Build for rust: `cargo build [--release]` or run an example in the `examples` folder with `cargo run --example [name of the example]`
 - Build and run in Python: run `cargo build [--release]` and follow [the official instructions][pyo3-python-import] to import the compiled library in your Python script.
