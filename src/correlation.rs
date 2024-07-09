@@ -524,7 +524,7 @@ impl Sortable for CorResult {
     }
 }
 
-pub trait Correlation {
+pub trait Correlation: Sync {
     fn correlate(&self, x: &[f64], y: &[f64]) -> (f64, f64);
 }
 
@@ -602,6 +602,7 @@ impl Correlation for Spearman {
     }
 }
 
+// FIXME: this is not passing tests when --release is set
 struct Kendall {
     /// Normal distribution already instantiated for p-value calculation
     normal_distribution: Normal,

@@ -3,6 +3,8 @@ use csv::{Reader, ReaderBuilder};
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::PyResult;
+use rayon::iter::ParallelBridge;
+use rayon::iter::ParallelIterator;
 use std::fs::File;
 
 create_exception!(ggca, GGCAError, PyException);
@@ -56,43 +58,47 @@ impl LazyMatrix {
     fn lazy_matrix(path: &str, with_cpg_site_id: bool) -> PyResult<LazyMatrixInner> {
         // Build the CSV reader and iterate over each record.
         let reader = reader_from_path(path)?;
-        let res_lazy_matrix = reader.into_records().map(move |record_result| {
-            // Gets current record and its line
-            let record = record_result.unwrap();
-            let line = record.position().unwrap().line();
-            let mut cells_it = record.into_iter();
+        let res_lazy_matrix = reader
+            .into_records()
+            .par_bridge()
+            .map(move |record_result| {
+                // Gets current record and its line
+                let record = record_result.unwrap();
+                let line = record.position().unwrap().line();
+                let mut cells_it = record.into_iter();
 
-            // Gets Gene/GEM and, if needed, CpG Site ID
-            let gene_or_gem = cells_it.next().unwrap().to_string();
-            let cpg_site_id = if with_cpg_site_id {
-                Some(cells_it.next().unwrap().to_string())
-            } else {
-                None
-            };
+                // Gets Gene/GEM and, if needed, CpG Site ID
+                let gene_or_gem = cells_it.next().unwrap().to_string();
+                let cpg_site_id = if with_cpg_site_id {
+                    Some(cells_it.next().unwrap().to_string())
+                } else {
+                    None
+                };
 
-            // Casts all cells to float
-            let values = cells_it
-                .enumerate()
-                .map(|(column_idx, cell)| {
-                    // + 1 or +2 as it doesn't take index (and CpG Site ID) column/s into account
-                    fast_float::parse(cell)
-                        // Avoids using expect() to prevent calling format()
-                        .unwrap_or_else(|_| {
-                            panic!(
-                                "Line {} column {} has an invalid value -> '{}'.
+                // Casts all cells to float
+                let values = cells_it
+                    .enumerate()
+                    .map(|(column_idx, cell)| {
+                        // + 1 or +2 as it doesn't take index (and CpG Site ID) column/s into account
+                        fast_float::parse(cell)
+                            // Avoids using expect() to prevent calling format()
+                            .unwrap_or_else(|_| {
+                                panic!(
+                                    "Line {} column {} has an invalid value -> '{}'.
                         \nFirst column must be the Gene/GEM and the rest the samples",
-                                line,
-                                column_idx + (if with_cpg_site_id { 2 } else { 1 }),
-                                cell
-                            )
-                        })
-                })
-                .collect::<Vec<f64>>();
+                                    line,
+                                    column_idx + (if with_cpg_site_id { 2 } else { 1 }),
+                                    cell
+                                )
+                            })
+                    })
+                    .collect::<Vec<f64>>();
 
-            (gene_or_gem, cpg_site_id, values)
-        });
+                (gene_or_gem, cpg_site_id, values)
+            });
 
-        Ok(Box::new(res_lazy_matrix))
+        let aux = res_lazy_matrix.collect::<Vec<_>>();
+        Ok(Box::new(aux.into_iter()))
     }
 }
 

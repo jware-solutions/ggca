@@ -1,6 +1,6 @@
 extern crate extsort;
 use crate::dataset::{Dataset, GGCAError};
-use crate::types::{CollectedMatrix, TupleExpressionValues, VecOfResults};
+use crate::types::{TupleExpressionValues, VecOfResults};
 use crate::{
     adjustment::{get_adjustment_method, AdjustmentMethod},
     correlation::{get_correlation_method, CorResult, Correlation, CorrelationMethod},
@@ -10,7 +10,9 @@ use itertools::Itertools;
 use log::warn;
 // Do not remove, it's used for tee()
 use pyo3::{create_exception, prelude::*};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::fs;
+use std::sync::Mutex;
 
 create_exception!(ggca, GGCADiffSamplesLength, pyo3::exceptions::PyException);
 create_exception!(ggca, GGCADiffSamples, pyo3::exceptions::PyException);
@@ -74,21 +76,21 @@ fn cartesian_equal_genes(
 
 /// Independent struct to log warnings in case some combinations are filtered
 struct ConstantInputError {
-    number_of_cor_filtered: usize,
+    number_of_cor_filtered: Mutex<usize>,
 }
 
 impl ConstantInputError {
     fn new() -> Self {
         let _ = env_logger::try_init(); // To log warnings
         ConstantInputError {
-            number_of_cor_filtered: 0,
+            number_of_cor_filtered: Mutex::new(0),
         }
     }
 
     /// Checks if p-value is NaN
-    fn p_value_is_nan(&mut self, cor_result: &CorResult) -> bool {
+    fn p_value_is_nan(&self, cor_result: &CorResult) -> bool {
         if cor_result.p_value.unwrap().is_nan() {
-            self.number_of_cor_filtered += 1;
+            *self.number_of_cor_filtered.lock().unwrap() += 1;
             true
         } else {
             false
@@ -97,10 +99,11 @@ impl ConstantInputError {
 
     /// Logs a warning indicating (if needed) that some correlations were filtered
     fn warn_if_needed(&mut self) {
-        if self.number_of_cor_filtered > 0 {
+        let number_of_filtered = *self.number_of_cor_filtered.lock().unwrap();
+        if number_of_filtered > 0 {
             warn!(
                 "{} combinations produced NaNs values as an input array is constant. The correlation coefficient is not defined so that/those combination/s were be filtered.",
-                self.number_of_cor_filtered
+                number_of_filtered
             );
         }
     }
@@ -132,25 +135,12 @@ pub struct Analysis {
 }
 
 impl Analysis {
-    /// Generic cartesian product for Iterator and collected LazyMatrix
-    /// See [this question](https://users.rust-lang.org/t/use-iterator-or-collected-vec/55324/2)
-    fn cartesian_product<X: Clone, Y, J: IntoIterator<Item = Y>>(
-        &self,
-        i: impl Iterator<Item = X>,
-        j: J,
-    ) -> impl Iterator<Item = (X, Y)>
-    where
-        J::IntoIter: Clone,
-    {
-        i.cartesian_product(j)
-    }
-
     fn run_analysis(
         &self,
         dataset_1: Dataset,
         dataset_2: Dataset,
         number_of_samples: usize,
-        should_collect_gem_dataset: bool,
+        _should_collect_gem_dataset: bool,
     ) -> PyResult<(VecOfResults, usize, usize)> {
         // Cartesian product computing correlation and p-value (two-sided)
         let correlation_method_struct =
@@ -163,32 +153,34 @@ impl Analysis {
 
         // Right part of iproduct must implement Clone. For more info read:
         // https://users.rust-lang.org/t/iterators-over-csv-files-with-iproduct/51947
-        let cross_product: Box<
-            dyn Iterator<Item = (TupleExpressionValues, TupleExpressionValues)>,
-        > = if should_collect_gem_dataset {
-            Box::new(self.cartesian_product(
-                dataset_1.lazy_matrix,
-                dataset_2.lazy_matrix.collect::<CollectedMatrix>(),
-            ))
-        } else {
-            Box::new(self.cartesian_product(dataset_1.lazy_matrix, dataset_2.lazy_matrix))
-        };
+        let d1_vec = dataset_1.lazy_matrix.collect_vec();
+        let d2_vec = dataset_2.lazy_matrix.collect_vec();
 
-        let correlations_and_p_values = cross_product.map(|(tuple_1, tuple_2)| {
-            correlation_function(tuple_1, tuple_2, &*correlation_method_struct)
-        });
+        // Dataset 1 is consumed (into_iter) due it's the external iterator
+        // Dataset 2 is referenced (iter) due each thread needs to iterate over its elements
+        let correlations_and_p_values = d1_vec
+            .into_par_iter()
+            .map(|x| {
+                d2_vec
+                    .iter()
+                    .map(|y| {
+                        correlation_function(x.clone(), y.clone(), &*correlation_method_struct)
+                    })
+                    .collect_vec()
+            })
+            .flatten();
 
         // Filtering by equal genes (if needed) and NaN values
         let mut nan_errors = ConstantInputError::new();
         let filtered: Box<dyn Iterator<Item = CorResult>> = if self.is_all_vs_all {
             let filtered_nan = correlations_and_p_values
                 .filter(|cor_result| !nan_errors.p_value_is_nan(cor_result));
-            Box::new(filtered_nan)
+            Box::new(filtered_nan.collect::<Vec<_>>().into_iter())
         } else {
             let filtered_nan = correlations_and_p_values.filter(|cor_result| {
                 cor_result.gene == cor_result.gem && !nan_errors.p_value_is_nan(cor_result)
             });
-            Box::new(filtered_nan)
+            Box::new(filtered_nan.collect::<Vec<_>>().into_iter())
         };
 
         // Counts element for future p-value adjustment
@@ -201,7 +193,9 @@ impl Analysis {
             _ => {
                 // Benjamini-Hochberg and Benjamini-Yekutieli needs sort by p-value (descending order) to
                 // make the adjustment
-                let sorter = ExternalSorter::new().with_segment_size(self.sort_buf_size);
+                let sorter = ExternalSorter::new()
+                    .with_parallel_sort()
+                    .with_segment_size(self.sort_buf_size);
                 Box::new(sorter.sort_by(filtered, |result_1, result_2| {
                     result_2
                         .p_value
@@ -244,7 +238,9 @@ impl Analysis {
                     let (filtered, filtered_aux_count) = filtered.tee();
 
                     // Sorts by correlation in descending order
-                    let sorter = ExternalSorter::new().with_segment_size(self.sort_buf_size);
+                    let sorter = ExternalSorter::new()
+                        .with_parallel_sort()
+                        .with_segment_size(self.sort_buf_size);
                     let sorted_cor_desc =
                         sorter.sort_by(filtered, |combination_1, combination_2| {
                             // Unwrap is safe as correlation values are all valid in this stage of algorithm (None
