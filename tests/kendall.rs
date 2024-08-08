@@ -176,7 +176,12 @@ fn kendall_and_bh_cor_0_45() {
 
     let collected_as_tuples = get_tuples_from_result(&result);
 
-    assert_eq_results(&collected_as_tuples, &EXPECTED_KENDALL_BH);
+    // NOTE: with Kendall we had some repeated correlation values that produced different orders so the tests failed.
+    // Sorting by cor (desc), gene (asc) and GEM (asc) we ensure that the order of both vectors coincide
+    let collected_as_tuples = get_sorted_by_correlation_abs_desc_gene_gem(&collected_as_tuples);
+    let sorted = get_sorted_by_correlation_abs_desc_gene_gem(&EXPECTED_KENDALL_BH);
+
+    assert_eq_results(&collected_as_tuples, &sorted);
 }
 
 #[test]
@@ -342,5 +347,11 @@ fn kendall_and_by_cor_0_45() {
     assert_eq!(result.len(), 22);
 
     let collected_as_tuples = get_tuples_from_result(&result);
-    assert_eq_results(&collected_as_tuples, &EXPECTED_KENDALL_BY);
+
+    // NOTE: with Kendall we had some repeated correlation values that produced different orders so the tests failed.
+    // Sorting by cor (desc), gene (asc) and GEM (asc) we ensure that the order of both vectors coincide
+    let collected_as_tuples = get_sorted_by_correlation_abs_desc_gene_gem(&collected_as_tuples);
+    let sorted = get_sorted_by_correlation_abs_desc_gene_gem(&EXPECTED_KENDALL_BY);
+
+    assert_eq_results(&collected_as_tuples, &sorted);
 }

@@ -20,8 +20,8 @@ fn pairs_comparator(a: &f64, b: &f64) -> Ordering {
     a.partial_cmp(b).unwrap_or(Ordering::Greater)
 }
 
-/// The same as `tau_b` but also allow to specify custom comparator for numbers for
-/// which [Ord] trait is not defined.
+/// It's the same as [Kendalls crate](https://github.com/zolkko/kendalls/) Tau-b method. But here we apply a
+/// parallel sort to improve performance.
 #[allow(clippy::many_single_char_names)]
 pub fn tau_b_with_comparator(x: &[f64], y: &[f64]) -> (f64, f64) {
     let n = x.len();
