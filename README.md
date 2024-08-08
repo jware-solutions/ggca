@@ -74,7 +74,7 @@ except ggca.GGCAError as ex:
 
 ### Rust
 
-1. Add crate to `Cargo.toml`: `ggca = { version = "0.4.1", default-features = false  }`
+1. Add crate to `Cargo.toml`: `ggca = { version = "1.0.0", default-features = false  }`
 1. Create an analysis and run it:
 
 ```rust
