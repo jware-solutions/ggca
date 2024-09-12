@@ -4,7 +4,7 @@
 //!
 //! ## Installation
 //!
-//! 1. Add crate to `Cargo.toml`: `ggca = "1.0.0"`
+//! 1. Add crate to `Cargo.toml`: `ggca = "1.0.1"`
 //!
 //!
 //! ## Usage
