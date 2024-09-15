@@ -142,6 +142,80 @@ All the correlations results were compared directly with R-Multiomics output (ol
 We use [criterion.rs][criterion] to perform benchmarks. In case you have made a contribution you can check that no regression was added to the project. Just run `cargo bench` before and after your changes to perform a statistical analysis of performance.
 
 
+## Troubleshooting
+
+### Undefined References During Compilation (Ubuntu)
+
+If you encounter errors related to undefined references when compiling the project on Ubuntu, such as:
+
+```
+undefined reference to `_Py_Dealloc`
+undefined reference to `PyGILState_Release`
+undefined reference to `PyUnicode_AsUTF8AndSize`
+```
+
+Or linking errors like:
+
+> error: linking with `cc` failed: exit status: 1\
+> ...\
+> = note: some `extern` functions couldn't be found; some native libraries may need to be installed or have their path specified\
+> = note: use the `-l` flag to specify native libraries to link\
+> = note: use the `cargo:rustc-link-lib` directive to specify the native libraries to link with Cargo (see https://doc.rust-lang.org/cargo/reference/build-scripts.html#cargorustc-link-libkindname)
+
+This typically happens because the necessary Python development libraries are either not installed or the linker is unable to find them. Below are steps to resolve this issue.
+
+### Steps to Resolve:
+
+1. **Install Python Development Libraries**:
+   Ensure that the Python development headers and libraries are installed. You can install them using the following command:
+   
+   ```bash
+   sudo apt-get install python3-dev
+   ```
+
+   This will provide the necessary files for linking Rust with Python.
+
+2. **Ensure Correct Python Version**:
+   Make sure you are using the correct version of Python that matches the libraries you are linking against. You can check your Python version by running:
+
+   ```bash
+   python3 --version
+   ```
+
+   If you have multiple Python versions installed, ensure that your environment is set up to use the correct one. You can do this using virtual environments or by explicitly setting the `PYTHON_PATH` and `LD_LIBRARY_PATH` environment variables.
+
+3. **Set Up Correct Linker Flags**:
+   If you are still encountering issues, ensure that the linker is able to find the necessary libraries. Add the following configuration to your `Cargo.toml`:
+
+   ```toml
+   [dependencies]
+   pyo3 = { version = "0.15", features = ["extension-module"] }
+
+   [build]
+   rustflags = ["-L", "/usr/lib/python3.x/config-x.x-x86_64-linux-gnu", "-lpython3.x"]
+   ```
+
+   Replace `3.x` with the version of Python you're using, e.g., `3.8` for Python 3.8.
+
+   Or just set the environment variables before compiling:
+
+   ```bash
+   export RUSTFLAGS="-L /usr/lib/python3.x/config-3.x-x86_64-linux-gnu -lpython3.x"
+   ```
+
+4. **Verify Library Paths**:
+   Ensure that the paths to the Python libraries are correctly set up. You can export these variables before compiling:
+
+   ```bash
+   export LD_LIBRARY_PATH=/usr/lib/python3.x/config-x.x-x86_64-linux-gnu:$LD_LIBRARY_PATH
+   export LIBRARY_PATH=/usr/lib/python3.x/config-x.x-x86_64-linux-gnu:$LIBRARY_PATH
+   ```
+
+   This will help the linker locate the necessary Python libraries.
+
+By following these steps, the undefined reference errors should be resolved, and your compilation should complete successfully. If the issue persists, consider checking your system’s Python installation and ensuring all dependencies are properly installed.
+
+
 ## Considerations
 
 If you use any part of our code, or the tool itself is useful for your research, please consider citing:
